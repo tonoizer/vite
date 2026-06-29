@@ -135,6 +135,30 @@ function isCommonJsImporter(importer: string | undefined): boolean {
   return !!importer && (importer.endsWith('.cjs') || importer.includes('/cjs/'));
 }
 
+function escapeRegExpForFilter(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function createSharedPackageResolveFilter(
+  shared: NormalizedModuleFederationOptions['shared']
+): RegExp {
+  const sources = new Set<string>();
+  for (const key of Object.keys(shared)) {
+    if (key.endsWith('/')) {
+      for (const subpath of getCommonSharedSubpaths(key)) sources.add(subpath);
+      continue;
+    }
+    sources.add(key);
+    for (const subpath of getCommonSharedSubpaths(key)) sources.add(subpath);
+  }
+  if (sources.size === 0) return /^$/;
+  const pattern = [...sources]
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExpForFilter)
+    .join('|');
+  return new RegExp(`^(${pattern})(/|$)`);
+}
+
 type OutputNameOption = string | ((...args: unknown[]) => string);
 type ManualChunksOption =
   | Record<string, string[]>
@@ -388,14 +412,17 @@ function createEarlyVirtualModulesPlugin(options: NormalizedModuleFederationOpti
                     external: true,
                   })
                 );
-                build.onResolve({ filter: /.*/ }, (args: any) => {
-                  if (args.kind === 'entry-point') return;
-                  if (!args.importer || args.namespace === 'mf-shared') return;
-                  if (isSharedResolverInternalImporter(args.importer)) return;
-                  const key = findSharedKey(args.path, shared);
-                  if (!key || args.path.endsWith('.css')) return;
-                  return { path: args.path, namespace: 'mf-shared' };
-                });
+                build.onResolve(
+                  { filter: createSharedPackageResolveFilter(shared) },
+                  (args: any) => {
+                    if (args.kind === 'entry-point') return;
+                    if (!args.importer || args.namespace === 'mf-shared') return;
+                    if (isSharedResolverInternalImporter(args.importer)) return;
+                    const key = findSharedKey(args.path, shared);
+                    if (!key || args.path.endsWith('.css')) return;
+                    return { path: args.path, namespace: 'mf-shared' };
+                  }
+                );
                 build.onLoad({ filter: /.*/, namespace: 'mf-shared' }, (args: any) => {
                   const key = findSharedKey(args.path, shared);
                   if (!key) return;
