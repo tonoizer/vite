@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import * as path from 'node:path';
 import { pathToFileURL } from 'url';
@@ -1087,23 +1087,6 @@ function federation(mfUserOptions: ModuleFederationOptions): any[] {
         const nextCode = sanitizeFederationControlChunk(code, chunk.fileName, filename);
 
         return nextCode === code ? null : { code: nextCode, map: null };
-      },
-      writeBundle(outputOptions: NormalizedOutputOptionsLike, bundle: BundleLike) {
-        if (!outputOptions.dir) return;
-
-        for (const chunk of Object.values(bundle)) {
-          if (!isOutputChunk(chunk)) continue;
-          if (!isFederationControlChunk(chunk.fileName, filename)) continue;
-
-          const outputPath = path.join(outputOptions.dir, chunk.fileName);
-          const nextCode = sanitizeFederationControlChunk(
-            readFileSync(outputPath, 'utf-8'),
-            chunk.fileName,
-            filename
-          );
-
-          writeFileSync(outputPath, nextCode);
-        }
       },
     },
     {
