@@ -643,6 +643,35 @@ describe('ssrEntryLoaderPlugin — manifest SSR entry resolution', () => {
     expect(heads.length).toBeGreaterThan(0);
   });
 
+  it('ignores cross-origin ssrRemoteEntry paths in manifest', async () => {
+    const fetch = makeFetchMock({
+      'http://localhost:5001/__mf_server__/remoteEntry.ssr.js': { ok: false },
+      'http://localhost:5001/mf-manifest.json': {
+        ok: true,
+        json: {
+          metaData: {
+            ssrRemoteEntry: {
+              name: 'remoteEntry.ssr.js',
+              path: 'https://evil.test/',
+              type: 'module',
+            },
+          },
+        },
+      },
+      'http://localhost:5001/remoteEntry.ssr.js': { ok: false },
+      'http://localhost:5001/__mf_ssr__/remoteEntry.ssr.js': { ok: false },
+    });
+    global.fetch = fetch as unknown as typeof globalThis.fetch;
+    const factory = await freshLoader();
+    await factory().loadEntry!({
+      remoteInfo: { name: 'r', entry: 'http://localhost:5001/remoteEntry.js' },
+    });
+    expect(fetch).not.toHaveBeenCalledWith(
+      'https://evil.test/remoteEntry.ssr.js',
+      expect.anything()
+    );
+  });
+
   it('falls back to convention when manifest fetch fails', async () => {
     const fetch = makeFetchMock({
       'http://localhost:5001/mf-manifest.json': { ok: false },

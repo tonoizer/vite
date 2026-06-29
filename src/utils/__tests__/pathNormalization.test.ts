@@ -4,6 +4,7 @@ import {
   getBasePath,
   getCommonSharedSubpathFromNodeModulePath,
   getMatchingNodeModuleSubpath,
+  isLocalDevModuleParam,
   isNuxtClientBase,
   isNodeModulePath,
   isPathWithinDirectory,
@@ -64,7 +65,15 @@ describe('pathNormalization', () => {
   it('checks whether a path stays within a directory', () => {
     expect(isPathWithinDirectory('/repo/src/App.tsx', '/repo')).toBe(true);
     expect(isPathWithinDirectory('/repo', '/repo')).toBe(true);
+    expect(isPathWithinDirectory('/repo', '/repo', { allowDirectory: false })).toBe(false);
     expect(isPathWithinDirectory('/etc/passwd', '/repo')).toBe(false);
+  });
+
+  it('guards local dev module params', () => {
+    const root = '/workspace/project';
+    expect(isLocalDevModuleParam('/src/main.jsx', root)).toBe(true);
+    expect(isLocalDevModuleParam('/../../../etc/passwd', root)).toBe(false);
+    expect(isLocalDevModuleParam('https://evil.test/remoteEntry.js', root)).toBe(false);
   });
 
   it('sanitizes relative output paths that escape via traversal', () => {

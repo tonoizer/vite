@@ -450,7 +450,7 @@ export function generateRemoteEntry(
   }
   ${getRuntimeModuleCacheBootstrapCode()}
   const initTokens = {}
-  const shareScopeName = ${JSON.stringify(options.shareScope)}
+  const shareScopeName = ${shareScopeLiteral}
   const mfName = ${JSON.stringify(options.name)}
   let localSharedImportMapPromise
   let exposesMapPromise
@@ -512,7 +512,7 @@ export function generateRemoteEntry(
               : Object.entries(versionMap);
             for (const [version, provider] of providerEntries) {
               if (!provider.lib) continue;
-              const cacheDescriptor = __mfGetSharedCacheDescriptor(pkg, provider.shareConfig?.singleton, version, ${JSON.stringify(options.shareScope)});
+              const cacheDescriptor = __mfGetSharedCacheDescriptor(pkg, provider.shareConfig?.singleton, version, ${shareScopeLiteral});
               if (__mfReadSharedCache(__mfModuleCache.share, cacheDescriptor) !== undefined) continue;
               const mod = typeof provider.lib === "function" ? provider.lib() : provider.lib;
               const resolved = await Promise.resolve(mod);
@@ -662,14 +662,20 @@ export function generateHostAutoInitCode(remoteEntryImport: string, _command = '
     export { initHost, hostInitPromise };
     `;
 }
+function syncHostAutoInitModule() {
+  hostAutoInitModule.writeSync(
+    generateHostAutoInitCode(
+      JSON.stringify(currentHostAutoInitRemoteEntryId),
+      currentHostAutoInitCommand
+    ),
+    true
+  );
+}
 export function writeHostAutoInit(remoteEntryId = REMOTE_ENTRY_ID, command = 'build') {
   currentHostAutoInitRemoteEntryId = remoteEntryId;
   currentHostAutoInitCommand = command;
   hostAutoInitDirty = false;
-  hostAutoInitModule.writeSync(
-    generateHostAutoInitCode(JSON.stringify(remoteEntryId), command),
-    true
-  );
+  syncHostAutoInitModule();
 }
 export function markHostAutoInitDirty() {
   hostAutoInitDirty = true;
@@ -678,7 +684,7 @@ export function refreshHostAutoInit() {
   if (!hostAutoInitDirty) return;
   hostAutoInitDirty = false;
   try {
-    writeHostAutoInit(currentHostAutoInitRemoteEntryId, currentHostAutoInitCommand);
+    syncHostAutoInitModule();
   } catch {
     // Some isolated unit tests exercise share/remote plugins without
     // initializing normalized federation options.

@@ -349,6 +349,25 @@ describe('virtualRemoteEntry', () => {
     expect(generatedCode).not.toContain('.catch(remoteEntry.init)');
   });
 
+  it('skips host auto init refresh when remotes and shares are unchanged', async () => {
+    const mod = await import('../virtualRemoteEntry');
+
+    mod.getUsedShares().clear();
+    mod.writeHostAutoInit('virtual:test-remote-entry');
+    writeSyncSpy.mockClear();
+    mod.refreshHostAutoInit();
+    expect(writeSyncSpy).not.toHaveBeenCalled();
+
+    mod.addUsedShares('react');
+    mod.refreshHostAutoInit();
+    expect(writeSyncSpy).toHaveBeenCalledTimes(1);
+
+    writeSyncSpy.mockClear();
+    mod.addUsedShares('react');
+    mod.refreshHostAutoInit();
+    expect(writeSyncSpy).not.toHaveBeenCalled();
+  });
+
   it('inlines a dedicated build-only initResolve bootstrap into remoteEntry', async () => {
     const mod = await import('../virtualRemoteEntry');
 
