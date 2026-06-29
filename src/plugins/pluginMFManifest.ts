@@ -8,7 +8,7 @@ import { getUsedRemotesMap, getUsedShares } from '../virtualModules';
 
 import { findRemoteEntryFile } from '../utils/bundleHelpers';
 import { mfWarn } from '../utils/logger';
-import { sanitizeRelativeOutputPath } from '../utils/pathNormalization';
+import { resolveSafeRelativeOutputPath } from '../utils/pathNormalization';
 import {
   addCssAssetsToAllExports,
   buildFileToShareKeyMap,
@@ -82,30 +82,31 @@ function createRemoteEntryAssetMap(fileName: string) {
   };
 }
 
+function getManifestOutputName(manifestOptions: { filePath?: string; fileName?: string }): string {
+  const requested = path.join(
+    manifestOptions.filePath || '',
+    manifestOptions.fileName || 'mf-manifest.json'
+  );
+  const { path: safePath, usedFallback } = resolveSafeRelativeOutputPath(
+    requested,
+    'mf-manifest.json'
+  );
+  if (usedFallback) {
+    mfWarn(`Manifest output path "${requested}" is invalid; using "mf-manifest.json" instead.`);
+  }
+  return safePath;
+}
+
 const Manifest = (): Plugin[] => {
   const mfOptions = getNormalizeModuleFederationOptions();
   const { name, filename, getPublicPath, manifest: manifestOptions, varFilename } = mfOptions;
 
-  const configuredManifestPath =
-    typeof manifestOptions === 'object'
-      ? path.join(manifestOptions?.filePath || '', manifestOptions?.fileName || 'mf-manifest.json')
-      : undefined;
   let mfManifestName =
     manifestOptions === true
       ? 'mf-manifest.json'
-      : configuredManifestPath
-        ? sanitizeRelativeOutputPath(configuredManifestPath, 'mf-manifest.json')
+      : typeof manifestOptions === 'object'
+        ? getManifestOutputName(manifestOptions)
         : undefined;
-
-  if (
-    configuredManifestPath &&
-    mfManifestName === 'mf-manifest.json' &&
-    path.normalize(configuredManifestPath).replace(/\\/g, '/') !== 'mf-manifest.json'
-  ) {
-    mfWarn(
-      `Manifest output path "${configuredManifestPath}" is invalid; using "mf-manifest.json" instead.`
-    );
-  }
 
   let mfManifestStatsName = mfManifestName ? getStatsFileName(mfManifestName) : undefined;
   const isConsumerProject = Object.keys(mfOptions.exposes).length === 0;

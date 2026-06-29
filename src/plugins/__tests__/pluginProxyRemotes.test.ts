@@ -9,7 +9,7 @@ const {
   getRemoteVirtualModuleMock,
   remoteModuleId,
 } = vi.hoisted(() => ({
-  addUsedRemoteMock: vi.fn(() => true),
+  addUsedRemoteMock: vi.fn(),
   getInstalledPackageEntryMock: vi.fn<(pkg: string) => string | undefined>(() => undefined),
   getRemoteVirtualModuleMock: vi.fn(),
   remoteModuleId: 'virtual:mf:scheduler.js',
