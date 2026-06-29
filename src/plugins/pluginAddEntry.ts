@@ -6,11 +6,12 @@ import { normalizePathForImport, rebaseImport } from '../utils/buildPaths';
 import { mapCodeToCodeWithSourcemap } from '../utils/mapCodeToCodeWithSourcemap';
 
 import {
+  escapeHtmlAttr,
   injectEntryScript,
   rewriteEntryScripts,
   sanitizeDevEntryPath,
 } from '../utils/htmlEntryUtils';
-import { isPathWithinDirectory } from '../utils/pathNormalization';
+import { isLocalDevModuleParam } from '../utils/pathNormalization';
 import { mfWarn } from '../utils/logger';
 import type { NormalizedModuleFederationOptions } from '../utils/normalizeModuleFederationOptions';
 import { getNormalizeModuleFederationOptions } from '../utils/normalizeModuleFederationOptions';
@@ -35,20 +36,6 @@ const HOST_INIT_PRELOAD_CHUNKS: ReadonlyArray<(name: string) => boolean> = [
   (name) => name.startsWith('_virtual_mf'),
   (name) => name === 'index',
 ];
-
-function escapeHtmlAttr(value: string) {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-}
-
-function isDevEntryParamUnderRoot(entryParam: string, projectRoot: string): boolean {
-  if (!entryParam || entryParam.includes('\0')) return false;
-  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(entryParam) || entryParam.startsWith('//')) {
-    return false;
-  }
-  const decoded = decodeURIComponent(entryParam);
-  const resolved = path.resolve(projectRoot, decoded.replace(/^\//, ''));
-  return isPathWithinDirectory(resolved, projectRoot);
-}
 
 function getExistingHrefSet(html: string) {
   return new Set(Array.from(html.matchAll(/\bhref\s*=\s*["']([^"']+)["']/gi), (match) => match[1]));
@@ -447,8 +434,8 @@ const addEntry = ({
             if (
               initSrc &&
               entrySrc &&
-              isDevEntryParamUnderRoot(initSrc, server.config.root) &&
-              isDevEntryParamUnderRoot(entrySrc, server.config.root)
+              isLocalDevModuleParam(initSrc, server.config.root) &&
+              isLocalDevModuleParam(entrySrc, server.config.root)
             ) {
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/javascript');
@@ -608,7 +595,6 @@ const addEntry = ({
         }
         emitFileId = this.emitFile(emitFileOptions);
         if (htmlFilePath) {
-          htmlFileExists = fs.existsSync(htmlFilePath);
           addHtmlScriptEntries(htmlFilePath);
         }
       },

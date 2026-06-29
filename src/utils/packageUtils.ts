@@ -28,6 +28,7 @@ function getDependencyCacheKey(cwd: string, dependencyName: string) {
 export function setPackageDetectionCwd(cwd: string) {
   packageDetectionCwd = cwd;
   installedPackageJsonCache.clear();
+  dependencyPresenceCache.clear();
 }
 
 export function getPackageDetectionCwd() {

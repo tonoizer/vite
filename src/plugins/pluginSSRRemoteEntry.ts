@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { Plugin, ResolvedConfig } from 'vite';
 import { NormalizedModuleFederationOptions } from '../utils/normalizeModuleFederationOptions';
 import { getIsRolldown, isNuxtProjectRoot } from '../utils/packageUtils';
-import { getBasePath, isNuxtClientBase } from '../utils/pathNormalization';
+import { getBasePath, isNuxtClientBase, isPathWithinDirectory } from '../utils/pathNormalization';
 import { decodeViteId } from '../utils/VirtualModule';
 import { generateExposesSSR, getVirtualExposesSSRId } from '../virtualModules/virtualExposesSSR';
 import {
@@ -427,7 +427,10 @@ export function pluginSSRRemoteEntry(options: NormalizedModuleFederationOptions)
     for (const fileName of ssrOutputFiles) {
       const source = path.resolve(ssrDir, fileName);
       const destination = path.resolve(clientDir, fileName);
-      if (!isWithinDirectory(source, ssrDir) || !isWithinDirectory(destination, clientDir)) {
+      if (
+        !isPathWithinDirectory(source, ssrDir, { allowDirectory: false }) ||
+        !isPathWithinDirectory(destination, clientDir, { allowDirectory: false })
+      ) {
         continue;
       }
       if (!fs.existsSync(source) || fs.existsSync(destination)) continue;
@@ -487,9 +490,4 @@ function collectEntryOutputFiles(
   };
   visit(entryFileName);
   return files;
-}
-
-function isWithinDirectory(filePath: string, directory: string): boolean {
-  const relative = path.relative(directory, filePath);
-  return relative !== '' && !relative.startsWith(`..${path.sep}`) && relative !== '..';
 }

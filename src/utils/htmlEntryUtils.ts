@@ -4,6 +4,10 @@ export function sanitizeDevEntryPath(devEntryPath: string): string {
   return devEntryPath.replace(/\\\\?/g, '/');
 }
 
+export function escapeHtmlAttr(value: string) {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
 /**
  * Rewrites entry module script tags to point at an external wrapper module.
  * The wrapper can then sequence federation init before the app entry without

@@ -1,10 +1,15 @@
 import * as path from 'node:path';
 import { NormalizedModuleFederationOptions } from './normalizeModuleFederationOptions';
 
-/** Returns true when `filePath` resolves inside `directory` (or equals it). */
-export function isPathWithinDirectory(filePath: string, directory: string): boolean {
+/** Returns true when `filePath` resolves inside `directory`. */
+export function isPathWithinDirectory(
+  filePath: string,
+  directory: string,
+  options?: { allowDirectory?: boolean }
+): boolean {
   const relative = path.relative(path.resolve(directory), path.resolve(filePath));
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  if (relative === '') return options?.allowDirectory ?? true;
+  return !relative.startsWith('..') && !path.isAbsolute(relative);
 }
 
 export function resolveSafeRelativeOutputPath(
@@ -16,6 +21,17 @@ export function resolveSafeRelativeOutputPath(
     return { path: fallback, usedFallback: true };
   }
   return { path: normalized, usedFallback: false };
+}
+
+/** Guards dev HTML proxy query params from loading modules outside the Vite project root. */
+export function isLocalDevModuleParam(entryParam: string, projectRoot: string): boolean {
+  if (!entryParam || entryParam.includes('\0')) return false;
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(entryParam) || entryParam.startsWith('//')) {
+    return false;
+  }
+  const decoded = decodeURIComponent(entryParam);
+  const resolved = path.resolve(projectRoot, decoded.replace(/^\//, ''));
+  return isPathWithinDirectory(resolved, projectRoot);
 }
 
 export const COMMON_SHARED_SUBPATHS: Record<string, string[]> = {
