@@ -879,6 +879,37 @@ describe('vite:module-federation-early-init', () => {
     );
   });
 
+  it('scopes esbuild optimizeDeps onResolve to configured shared packages', () => {
+    const plugin = getEarlyInitPlugin();
+    const config: any = {
+      root: process.cwd(),
+      optimizeDeps: {
+        include: [],
+      },
+    };
+
+    runConfig(plugin, { meta: {} } as ConfigPluginContext, config, {
+      command: 'serve',
+      mode: 'test',
+    });
+
+    const optimizeSharedProxy = config.optimizeDeps.esbuildOptions.plugins.find(
+      (entry: any) => entry.name === 'module-federation:optimize-shared-proxy'
+    );
+    const capturedFilters: RegExp[] = [];
+    optimizeSharedProxy.setup({
+      onResolve: (options: { filter: RegExp }, _handler: unknown) => {
+        capturedFilters.push(options.filter);
+      },
+      onLoad: () => {},
+    });
+
+    const sharedFilter = capturedFilters.find((filter) => !String(filter).includes('virtual:mf'));
+    expect(sharedFilter?.test('vue')).toBe(true);
+    expect(sharedFilter?.test('vue/server-renderer')).toBe(true);
+    expect(sharedFilter?.test('lodash')).toBe(false);
+  });
+
   it('skips pure virtual optimizeDeps includes in non-Rolldown serve', () => {
     const plugin = getEarlyInitPlugin();
     const config: any = {
