@@ -7,6 +7,12 @@
  * @param {Record<string, unknown>} options - The options object to serialize.
  * @returns {string} The resulting JavaScript source code string.
  */
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isSafeObjectKey(key: string): boolean {
+  return !UNSAFE_OBJECT_KEYS.has(key);
+}
+
 export function serializeRuntimeOptions(options: Record<string, unknown>): string {
   // Use a WeakSet to track objects already encountered, which helps in detecting circular references.
   const seenObjects = new WeakSet<any>();
@@ -75,10 +81,9 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
 
       // Iterate over the object's own enumerable properties
       for (const key in val) {
-        if (Object.prototype.hasOwnProperty.call(val, key)) {
-          // Wrap the key in JSON.stringify to handle non-identifier keys
-          properties.push(`${JSON.stringify(key)}: ${valueToCode(val[key])}`);
-        }
+        if (!isSafeObjectKey(key) || !Object.prototype.hasOwnProperty.call(val, key)) continue;
+        // Wrap the key in JSON.stringify to handle non-identifier keys
+        properties.push(`${JSON.stringify(key)}: ${valueToCode(val[key])}`);
       }
       return `{${properties.join(', ')}}`;
     }
@@ -93,9 +98,8 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
 
   // Iterate over the properties of the root 'options' object
   for (const key in options) {
-    if (Object.prototype.hasOwnProperty.call(options, key)) {
-      topLevelProps.push(`${JSON.stringify(key)}: ${valueToCode(options[key])}`);
-    }
+    if (!isSafeObjectKey(key) || !Object.prototype.hasOwnProperty.call(options, key)) continue;
+    topLevelProps.push(`${JSON.stringify(key)}: ${valueToCode(options[key])}`);
   }
 
   return `{${topLevelProps.join(', ')}}`;

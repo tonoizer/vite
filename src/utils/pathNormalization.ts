@@ -29,7 +29,12 @@ export function isLocalDevModuleParam(entryParam: string, projectRoot: string): 
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(entryParam) || entryParam.startsWith('//')) {
     return false;
   }
-  const decoded = decodeURIComponent(entryParam);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(entryParam);
+  } catch {
+    return false;
+  }
   const resolved = path.resolve(projectRoot, decoded.replace(/^\//, ''));
   return isPathWithinDirectory(resolved, projectRoot);
 }

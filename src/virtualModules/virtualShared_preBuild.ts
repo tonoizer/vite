@@ -109,6 +109,7 @@ function getEsmNamedExports(pkg: string): string[] {
 function resolveConfiguredImportPath(importSource: string): string | undefined {
   const projectRoot = getPackageDetectionCwd();
   if (path.isAbsolute(importSource)) {
+    if (path.normalize(importSource).includes('..')) return undefined;
     return resolveFileLikeModule(importSource);
   }
 

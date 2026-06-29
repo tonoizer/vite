@@ -643,6 +643,32 @@ describe('ssrEntryLoaderPlugin — manifest SSR entry resolution', () => {
     expect(heads.length).toBeGreaterThan(0);
   });
 
+  it('ignores same-origin traversal in manifest asset paths', async () => {
+    const fetch = makeFetchMock({
+      'http://localhost:5001/mf-manifest.json': {
+        ok: true,
+        json: {
+          metaData: {
+            ssrRemoteEntry: {
+              name: 'remoteEntry.ssr.js',
+              path: '../../internal/',
+              type: 'module',
+            },
+          },
+        },
+      },
+    });
+    global.fetch = fetch as unknown as typeof globalThis.fetch;
+    const factory = await freshLoader();
+    await factory().loadEntry!({
+      remoteInfo: { name: 'r', entry: 'http://localhost:5001/remoteEntry.js' },
+    });
+    expect(fetch).not.toHaveBeenCalledWith(
+      'http://localhost:5001/internal/remoteEntry.ssr.js',
+      expect.anything()
+    );
+  });
+
   it('ignores cross-origin ssrRemoteEntry paths in manifest', async () => {
     const fetch = makeFetchMock({
       'http://localhost:5001/__mf_server__/remoteEntry.ssr.js': { ok: false },
