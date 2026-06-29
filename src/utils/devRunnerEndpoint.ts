@@ -16,12 +16,11 @@ export function isSafeRunnerModuleId(id: unknown, projectRoot: string): boolean 
   const decoded = decodeViteId(id).replace(/^\0+/, '');
   if (decoded.includes('..')) return false;
   if (decoded.startsWith('virtual:mf') || decoded.includes('virtual:mf:')) return true;
-  if (decoded.includes('node_modules')) return true;
-  if (path.isAbsolute(decoded)) {
-    return isPathWithinDirectory(decoded, projectRoot);
-  }
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(decoded) || decoded.startsWith('//')) return false;
 
-  return !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(decoded) && !decoded.startsWith('//');
+  const root = path.resolve(projectRoot);
+  const resolved = path.isAbsolute(decoded) ? path.resolve(decoded) : path.resolve(root, decoded);
+  return isPathWithinDirectory(resolved, root);
 }
 
 export function readBoundedRequestBody(
