@@ -74,6 +74,7 @@ describe('pathNormalization', () => {
     expect(isLocalDevModuleParam('/src/main.jsx', root)).toBe(true);
     expect(isLocalDevModuleParam('/../../../etc/passwd', root)).toBe(false);
     expect(isLocalDevModuleParam('https://evil.test/remoteEntry.js', root)).toBe(false);
+    expect(isLocalDevModuleParam('%', root)).toBe(false);
   });
 
   it('sanitizes relative output paths that escape via traversal', () => {

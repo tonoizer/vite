@@ -243,7 +243,8 @@ function resolveManifestRelativeUrl(pathSegment: string, manifestUrl: string): s
   if (
     !pathSegment ||
     /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(pathSegment) ||
-    pathSegment.startsWith('//')
+    pathSegment.startsWith('//') ||
+    pathSegment.includes('..')
   ) {
     return null;
   }
