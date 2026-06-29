@@ -44,7 +44,7 @@ import {
   setPackageDetectionCwd,
 } from './utils/packageUtils';
 import { getSsrCapabilities } from './utils/ssrCapabilities';
-import { getCommonSharedSubpaths } from './utils/pathNormalization';
+import { getCommonSharedSubpaths, removeTrailingSlash } from './utils/pathNormalization';
 import VirtualModule, { createViteEncodedIdPrefixRegExp } from './utils/VirtualModule';
 import {
   getHostAutoInitImportId,
@@ -145,11 +145,16 @@ function createSharedPackageResolveFilter(
   const sources = new Set<string>();
   for (const key of Object.keys(shared)) {
     if (key.endsWith('/')) {
+      sources.add(removeTrailingSlash(key));
       for (const subpath of getCommonSharedSubpaths(key)) sources.add(subpath);
       continue;
     }
     sources.add(key);
     for (const subpath of getCommonSharedSubpaths(key)) sources.add(subpath);
+    if (key === 'vue') {
+      sources.add('vue/dist/vue.esm-bundler.js');
+      sources.add('vue/dist/vue.runtime.esm-bundler.js');
+    }
   }
   if (sources.size === 0) return /^$/;
   const pattern = [...sources]

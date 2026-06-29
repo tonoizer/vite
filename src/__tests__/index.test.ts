@@ -907,7 +907,48 @@ describe('vite:module-federation-early-init', () => {
     const sharedFilter = capturedFilters.find((filter) => !String(filter).includes('virtual:mf'));
     expect(sharedFilter?.test('vue')).toBe(true);
     expect(sharedFilter?.test('vue/server-renderer')).toBe(true);
+    expect(sharedFilter?.test('vue/dist/vue.esm-bundler.js')).toBe(true);
     expect(sharedFilter?.test('lodash')).toBe(false);
+  });
+
+  it('scopes optimizeDeps filter to wildcard shared package subpaths', () => {
+    const plugin = (
+      federation({
+        name: 'host',
+        filename: 'remoteEntry.js',
+        shared: {
+          '@scope/ui/': {
+            singleton: false,
+          },
+        },
+      }) as Plugin[]
+    ).find((entry) => entry.name === 'vite:module-federation-early-init');
+    if (!plugin) throw new Error('vite:module-federation-early-init plugin not found');
+
+    const config: any = {
+      root: process.cwd(),
+      optimizeDeps: { include: [] },
+    };
+    runConfig(plugin, { meta: {} } as ConfigPluginContext, config, {
+      command: 'serve',
+      mode: 'test',
+    });
+
+    const optimizeSharedProxy = config.optimizeDeps.esbuildOptions.plugins.find(
+      (entry: any) => entry.name === 'module-federation:optimize-shared-proxy'
+    );
+    const capturedFilters: RegExp[] = [];
+    optimizeSharedProxy.setup({
+      onResolve: (options: { filter: RegExp }, _handler: unknown) => {
+        capturedFilters.push(options.filter);
+      },
+      onLoad: () => {},
+    });
+
+    const sharedFilter = capturedFilters.find((filter) => !String(filter).includes('virtual:mf'));
+    expect(sharedFilter?.test('@scope/ui')).toBe(true);
+    expect(sharedFilter?.test('@scope/ui/button')).toBe(true);
+    expect(sharedFilter?.test('@scope/other/button')).toBe(false);
   });
 
   it('skips pure virtual optimizeDeps includes in non-Rolldown serve', () => {
