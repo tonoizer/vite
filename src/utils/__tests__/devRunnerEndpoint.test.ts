@@ -44,6 +44,10 @@ describe('devRunnerEndpoint', () => {
     expect(isSafeRunnerModuleId('/etc/passwd', root)).toBe(false);
     expect(isSafeRunnerModuleId('../../../etc/passwd', root)).toBe(false);
     expect(isSafeRunnerModuleId('https://evil.test/mod.js', root)).toBe(false);
+    expect(isSafeRunnerModuleId('/tmp/other-project/node_modules/react/index.js', root)).toBe(
+      false
+    );
+    expect(isSafeRunnerModuleId('/workspace/project/node_modules/react/index.js', root)).toBe(true);
   });
 
   it('rejects oversized runner request bodies', async () => {
