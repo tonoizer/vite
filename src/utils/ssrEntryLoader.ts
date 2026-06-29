@@ -239,18 +239,41 @@ function getEntryFilename(entryUrl: string): string {
   );
 }
 
+function isUnsafeManifestAssetPath(segment: string): boolean {
+  return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(segment) || segment.startsWith('//');
+}
+
+function assertSameOriginManifestUrl(url: string, manifestUrl: string): string {
+  const manifestOrigin = new URL(manifestUrl).origin;
+  const resolvedOrigin = new URL(url).origin;
+  if (resolvedOrigin !== manifestOrigin) {
+    throw new Error(
+      `[Module Federation] Manifest asset URL "${url}" resolves outside manifest origin "${manifestOrigin}"`
+    );
+  }
+  return url;
+}
+
 function resolveEntryAssetUrl(entry: { name: string; path?: string }, manifestUrl: string): string {
+  const pathSegment = `${entry.path || ''}${entry.name}`;
+  if (isUnsafeManifestAssetPath(pathSegment)) {
+    throw new Error(
+      `[Module Federation] Manifest asset path must be relative, received: ${pathSegment}`
+    );
+  }
   const base = manifestUrl.replace(/\/[^/]+$/, '/');
-  return new URL(`${entry.path || ''}${entry.name}`, base).href;
+  return assertSameOriginManifestUrl(new URL(pathSegment, base).href, manifestUrl);
 }
 
 function resolveSSREntryUrl(manifest: Manifest, manifestUrl: string): SsrEntryCandidate | null {
   const meta = manifest?.metaData;
   if (!meta?.ssrRemoteEntry?.name) return null;
 
-  const base = manifestUrl.replace(/\/[^/]+$/, '/');
   const entryPath = (meta.ssrRemoteEntry.path || '') + meta.ssrRemoteEntry.name;
-  const url = new URL(entryPath, base).href;
+  if (isUnsafeManifestAssetPath(entryPath)) return null;
+
+  const base = manifestUrl.replace(/\/[^/]+$/, '/');
+  const url = assertSameOriginManifestUrl(new URL(entryPath, base).href, manifestUrl);
   return { url, type: meta.ssrRemoteEntry.type || 'module' };
 }
 

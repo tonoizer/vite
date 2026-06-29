@@ -13,7 +13,13 @@ type PackageJsonDependencyGroups = {
 };
 
 const dependencyPresenceCache = new Map<string, boolean>();
+const installedPackageJsonCache = new Map<string, InstalledPackageJson | undefined>();
 let packageDetectionCwd: string | undefined;
+
+function getInstalledPackageJsonCacheKey(pkg: string, opts?: PackageEntryConditions) {
+  const cwd = opts?.cwd || getPackageDetectionCwd();
+  return `${cwd}:${pkg}:${opts?.packageName ?? ''}:${opts?.fromResolvedEntry ?? ''}`;
+}
 
 function getDependencyCacheKey(cwd: string, dependencyName: string) {
   return `${cwd}:${dependencyName}`;
@@ -21,6 +27,7 @@ function getDependencyCacheKey(cwd: string, dependencyName: string) {
 
 export function setPackageDetectionCwd(cwd: string) {
   packageDetectionCwd = cwd;
+  installedPackageJsonCache.clear();
 }
 
 export function getPackageDetectionCwd() {
@@ -228,6 +235,11 @@ export function getInstalledPackageJson(
   pkg: string,
   opts?: PackageEntryConditions
 ): InstalledPackageJson | undefined {
+  const cacheKey = getInstalledPackageJsonCacheKey(pkg, opts);
+  if (installedPackageJsonCache.has(cacheKey)) {
+    return installedPackageJsonCache.get(cacheKey);
+  }
+
   const cwd = opts?.cwd || getPackageDetectionCwd();
   const packageName = opts?.packageName || getPackageName(pkg);
   const tryReadPackageJson = (packageJsonPath: string): InstalledPackageJson | undefined => {
@@ -288,11 +300,11 @@ export function getInstalledPackageJson(
         try {
           const packageJson = JSON.parse(packageJsonContent) as Record<string, unknown>;
           if (packageJson.name === packageName) {
-            return {
+            return cacheInstalledPackageJson(cacheKey, {
               path: packageJsonPath,
               dir: currentDir,
               packageJson,
-            };
+            });
           }
         } catch (error) {
           if (!(error instanceof SyntaxError)) throw error;
@@ -308,15 +320,24 @@ export function getInstalledPackageJson(
     while (true) {
       const packageJsonPath = path.join(currentDir, 'node_modules', packageName, 'package.json');
       const directCandidate = tryReadPackageJson(packageJsonPath);
-      if (directCandidate?.packageJson.name === packageName) return directCandidate;
+      if (directCandidate?.packageJson.name === packageName)
+        return cacheInstalledPackageJson(cacheKey, directCandidate);
       if (currentDir === rootDir) break;
       currentDir = path.dirname(currentDir);
     }
 
-    return findPackageInPnpmStore(cwd);
+    return cacheInstalledPackageJson(cacheKey, findPackageInPnpmStore(cwd));
   }
 
-  return undefined;
+  return cacheInstalledPackageJson(cacheKey, undefined);
+}
+
+function cacheInstalledPackageJson(
+  cacheKey: string,
+  result: InstalledPackageJson | undefined
+): InstalledPackageJson | undefined {
+  installedPackageJsonCache.set(cacheKey, result);
+  return result;
 }
 
 export function getInstalledPackageEntry(

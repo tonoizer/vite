@@ -28,6 +28,7 @@ import {
   getSharedCacheDescriptor,
   sharedCacheHelperCode,
 } from '../utils/packageUtils';
+import { isPathWithinDirectory } from '../utils/pathNormalization';
 import VirtualModule, { normalizeVirtualModuleId, toViteEncodedId } from '../utils/VirtualModule';
 import {
   getRuntimeInitPromiseBootstrapCode,
@@ -106,13 +107,15 @@ function getEsmNamedExports(pkg: string): string[] {
 }
 
 function resolveConfiguredImportPath(importSource: string): string | undefined {
+  const projectRoot = getPackageDetectionCwd();
   if (path.isAbsolute(importSource)) {
     return resolveFileLikeModule(importSource);
   }
 
-  const projectRoot = getPackageDetectionCwd();
   if (importSource.startsWith('.')) {
-    return resolveFileLikeModule(path.resolve(projectRoot, importSource));
+    const resolved = path.resolve(projectRoot, importSource);
+    if (!isPathWithinDirectory(resolved, projectRoot)) return undefined;
+    return resolveFileLikeModule(resolved);
   }
 
   const esmEntry = getInstalledPackageEntry(importSource, {
@@ -933,5 +936,8 @@ export function writeLoadShareModule(
     ${exportLine}
   `;
 
-  loadShareCacheMap[pkg].writeSync(moduleBody, true);
+  const vm = loadShareCacheMap[pkg];
+  if (vm.code !== moduleBody) {
+    vm.writeSync(moduleBody, true);
+  }
 }

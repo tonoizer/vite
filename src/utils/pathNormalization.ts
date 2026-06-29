@@ -1,4 +1,20 @@
+import * as path from 'node:path';
 import { NormalizedModuleFederationOptions } from './normalizeModuleFederationOptions';
+
+/** Returns true when `filePath` resolves inside `directory` (or equals it). */
+export function isPathWithinDirectory(filePath: string, directory: string): boolean {
+  const relative = path.relative(path.resolve(directory), path.resolve(filePath));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+/** Rejects manifest/output paths that escape their intended directory via `..` or absolutes. */
+export function sanitizeRelativeOutputPath(relativePath: string, fallback: string): string {
+  const normalized = path.normalize(relativePath).replace(/\\/g, '/');
+  if (normalized.includes('..') || path.isAbsolute(normalized)) {
+    return fallback;
+  }
+  return normalized;
+}
 
 export const COMMON_SHARED_SUBPATHS: Record<string, string[]> = {
   react: ['react/jsx-runtime', 'react/jsx-dev-runtime', 'react/compiler-runtime'],

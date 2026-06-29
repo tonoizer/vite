@@ -54,6 +54,28 @@ describe('getInstalledPackageJson', () => {
     );
   });
 
+  it('caches repeated lookups for the same package and cwd', () => {
+    const packageName = 'mf-test-cache-hit';
+    const root = mkdtempSync(path.join(tmpdir(), 'mf-vite-cache-'));
+    tempDirs.push(root);
+
+    const hostDir = path.join(root, 'apps/host');
+    const packageDir = path.join(hostDir, 'node_modules', packageName);
+    mkdirSync(packageDir, { recursive: true });
+    writeFileSync(path.join(hostDir, 'package.json'), JSON.stringify({ name: 'host' }));
+    writeFileSync(
+      path.join(packageDir, 'package.json'),
+      JSON.stringify({ name: packageName, version: '1.0.0' })
+    );
+
+    const opts = { cwd: hostDir };
+    const first = getInstalledPackageJson(packageName, opts);
+    const second = getInstalledPackageJson(packageName, opts);
+
+    expect(first?.packageJson.name).toBe(packageName);
+    expect(second).toBe(first);
+  });
+
   it('prefers browser conditional exports for installed package entries', () => {
     const packageName = 'mf-test-browser-conditional';
     const root = mkdtempSync(path.join(tmpdir(), 'mf-vite-browser-'));

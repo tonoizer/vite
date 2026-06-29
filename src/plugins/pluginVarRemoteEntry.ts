@@ -109,7 +109,7 @@ const VarRemoteEntry = (): Plugin[] => {
 
     return `
   ${isValidName ? `var ${name};` : ''}
-  ${isValidName ? name : `globalThis['${name}']`} = (function () {
+  ${isValidName ? name : `globalThis[${JSON.stringify(name)}]`} = (function () {
     function getScriptUrl() {
       const currentScript = document.currentScript;
       if (!currentScript) {
