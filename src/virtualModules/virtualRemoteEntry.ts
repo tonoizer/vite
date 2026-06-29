@@ -30,11 +30,14 @@ import {
 } from './virtualShared_preBuild';
 
 let usedShares: Set<string> = new Set();
+let hostAutoInitDirty = false;
 export function getUsedShares() {
   return usedShares;
 }
 export function addUsedShares(pkg: string) {
+  if (usedShares.has(pkg)) return;
   usedShares.add(pkg);
+  markHostAutoInitDirty();
 }
 const LOCAL_SHARED_IMPORT_MAP_ID = 'virtual:mf-localSharedImportMap';
 
@@ -404,9 +407,7 @@ export function generateRemoteEntry(
 ): string {
   const needsSharedProviderSelectionHelper = hasImportFalseShared(options);
   const shareScopeLiteral = JSON.stringify(options.shareScope);
-  const shareStrategyLiteral = options.shareStrategy
-    ? JSON.stringify(options.shareStrategy)
-    : undefined;
+  const shareStrategyLiteral = JSON.stringify(options.shareStrategy ?? 'version-first');
   const pluginImportNames = options.runtimePlugins.map((p, i) => {
     if (typeof p === 'string') {
       return [
@@ -504,7 +505,7 @@ export function generateRemoteEntry(
           for (const [pkg, versionMap] of Object.entries(scopeShare)) {
             const usedShare = usedShared?.[pkg];
             const selectedProvider = usedShare?.shareConfig?.import === false
-              ? __mfSelectSharedProvider(versionMap, pkg, usedShare, ${shareStrategyLiteral ?? "'version-first'"})
+              ? __mfSelectSharedProvider(versionMap, pkg, usedShare, ${shareStrategyLiteral})
               : undefined;
             const providerEntries = usedShare?.shareConfig?.import === false
               ? Object.entries(versionMap).filter(([, provider]) => provider === selectedProvider)
@@ -559,7 +560,7 @@ export function generateRemoteEntry(
       remotes: ${options.shareStrategy === 'loaded-first' ? '[]' : 'usedRemotes'},
       shared: usedShared,
       plugins: [...__browserPlugins, ...__ssrPlugins],
-      ${shareStrategyLiteral ? `shareStrategy: ${shareStrategyLiteral}` : ''}
+      shareStrategy: ${shareStrategyLiteral},
     });
     // handling circular init calls
     var initToken = initTokens[shareScopeName];
@@ -572,7 +573,7 @@ export function generateRemoteEntry(
     try {
       await retrySharedInit(async () => {
         await Promise.all(await initRes.initializeSharing(${shareScopeLiteral}, {
-          strategy: ${shareStrategyLiteral ?? "'version-first'"},
+          strategy: ${shareStrategyLiteral},
           from: "build",
           initScope
         }));
@@ -585,7 +586,7 @@ export function generateRemoteEntry(
       if (share.shareConfig?.import !== false || __mfReadSharedCache(__mfModuleCache.share, cacheDescriptor) !== undefined) continue;
       ${normalizeRuntimeShareCode}
       const versions = shared?.[pkg];
-      const provider = __mfSelectSharedProvider(versions, pkg, share, ${shareStrategyLiteral ?? "'version-first'"});
+      const provider = __mfSelectSharedProvider(versions, pkg, share, ${shareStrategyLiteral});
       if (!provider) continue;
       const factory = provider.lib || (provider.loading ? await provider.loading : await provider.get?.());
       const mod = typeof factory === "function" ? factory() : factory;
@@ -664,12 +665,18 @@ export function generateHostAutoInitCode(remoteEntryImport: string, _command = '
 export function writeHostAutoInit(remoteEntryId = REMOTE_ENTRY_ID, command = 'build') {
   currentHostAutoInitRemoteEntryId = remoteEntryId;
   currentHostAutoInitCommand = command;
+  hostAutoInitDirty = false;
   hostAutoInitModule.writeSync(
     generateHostAutoInitCode(JSON.stringify(remoteEntryId), command),
     true
   );
 }
+export function markHostAutoInitDirty() {
+  hostAutoInitDirty = true;
+}
 export function refreshHostAutoInit() {
+  if (!hostAutoInitDirty) return;
+  hostAutoInitDirty = false;
   try {
     writeHostAutoInit(currentHostAutoInitRemoteEntryId, currentHostAutoInitCommand);
   } catch {

@@ -239,30 +239,26 @@ function getEntryFilename(entryUrl: string): string {
   );
 }
 
-function isUnsafeManifestAssetPath(segment: string): boolean {
-  return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(segment) || segment.startsWith('//');
-}
-
-function assertSameOriginManifestUrl(url: string, manifestUrl: string): string {
-  const manifestOrigin = new URL(manifestUrl).origin;
-  const resolvedOrigin = new URL(url).origin;
-  if (resolvedOrigin !== manifestOrigin) {
-    throw new Error(
-      `[Module Federation] Manifest asset URL "${url}" resolves outside manifest origin "${manifestOrigin}"`
-    );
+function resolveManifestRelativeUrl(pathSegment: string, manifestUrl: string): string | null {
+  if (
+    !pathSegment ||
+    /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(pathSegment) ||
+    pathSegment.startsWith('//')
+  ) {
+    return null;
   }
+
+  const base = manifestUrl.replace(/\/[^/]+$/, '/');
+  const url = new URL(pathSegment, base).href;
+  if (new URL(url).origin !== new URL(manifestUrl).origin) return null;
   return url;
 }
 
 function resolveEntryAssetUrl(entry: { name: string; path?: string }, manifestUrl: string): string {
-  const pathSegment = `${entry.path || ''}${entry.name}`;
-  if (isUnsafeManifestAssetPath(pathSegment)) {
-    throw new Error(
-      `[Module Federation] Manifest asset path must be relative, received: ${pathSegment}`
-    );
-  }
-  const base = manifestUrl.replace(/\/[^/]+$/, '/');
-  return assertSameOriginManifestUrl(new URL(pathSegment, base).href, manifestUrl);
+  return (
+    resolveManifestRelativeUrl(`${entry.path || ''}${entry.name}`, manifestUrl) ??
+    new URL('remoteEntry.js', manifestUrl.replace(/\/[^/]+$/, '/')).href
+  );
 }
 
 function resolveSSREntryUrl(manifest: Manifest, manifestUrl: string): SsrEntryCandidate | null {
@@ -270,10 +266,8 @@ function resolveSSREntryUrl(manifest: Manifest, manifestUrl: string): SsrEntryCa
   if (!meta?.ssrRemoteEntry?.name) return null;
 
   const entryPath = (meta.ssrRemoteEntry.path || '') + meta.ssrRemoteEntry.name;
-  if (isUnsafeManifestAssetPath(entryPath)) return null;
-
-  const base = manifestUrl.replace(/\/[^/]+$/, '/');
-  const url = assertSameOriginManifestUrl(new URL(entryPath, base).href, manifestUrl);
+  const url = resolveManifestRelativeUrl(entryPath, manifestUrl);
+  if (!url) return null;
   return { url, type: meta.ssrRemoteEntry.type || 'module' };
 }
 

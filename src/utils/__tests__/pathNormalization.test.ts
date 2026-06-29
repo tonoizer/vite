@@ -9,7 +9,7 @@ import {
   isPathWithinDirectory,
   normalizeNodeModulePath,
   removeTrailingSlash,
-  sanitizeRelativeOutputPath,
+  resolveSafeRelativeOutputPath,
 } from '../pathNormalization';
 
 describe('pathNormalization', () => {
@@ -68,11 +68,12 @@ describe('pathNormalization', () => {
   });
 
   it('sanitizes relative output paths that escape via traversal', () => {
-    expect(sanitizeRelativeOutputPath('../../outside/mf-manifest.json', 'mf-manifest.json')).toBe(
-      'mf-manifest.json'
-    );
-    expect(sanitizeRelativeOutputPath('dist/mf-manifest.json', 'mf-manifest.json')).toBe(
-      'dist/mf-manifest.json'
-    );
+    expect(
+      resolveSafeRelativeOutputPath('../../outside/mf-manifest.json', 'mf-manifest.json')
+    ).toEqual({ path: 'mf-manifest.json', usedFallback: true });
+    expect(resolveSafeRelativeOutputPath('dist/mf-manifest.json', 'mf-manifest.json')).toEqual({
+      path: 'dist/mf-manifest.json',
+      usedFallback: false,
+    });
   });
 });

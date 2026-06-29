@@ -5,7 +5,7 @@ import {
 import type { RemoteConsumer } from '../utils/remoteConsumerTarget';
 import { SERVER_ENV_GUARD } from '../utils/ssrCapabilities';
 import VirtualModule from '../utils/VirtualModule';
-import { getHostAutoInitPath } from './virtualRemoteEntry';
+import { getHostAutoInitPath, markHostAutoInitDirty } from './virtualRemoteEntry';
 import {
   getRuntimeInitBootstrapCode,
   getRuntimeModuleCacheBootstrapCode,
@@ -34,11 +34,13 @@ export function getRemoteVirtualModule(
 const usedRemotesMap: Record<string, Set<string>> = {
   // remote1: {remote1/App, remote1, remote1/Button}
 };
-export function addUsedRemote(remoteKey: string, remoteModule: string): boolean {
+export function addUsedRemote(remoteKey: string, remoteModule: string) {
   if (!usedRemotesMap[remoteKey]) usedRemotesMap[remoteKey] = new Set();
   const sizeBefore = usedRemotesMap[remoteKey].size;
   usedRemotesMap[remoteKey].add(remoteModule);
-  return usedRemotesMap[remoteKey].size > sizeBefore;
+  if (usedRemotesMap[remoteKey].size > sizeBefore) {
+    markHostAutoInitDirty();
+  }
 }
 export function getUsedRemotesMap() {
   return usedRemotesMap;

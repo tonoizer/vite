@@ -7,10 +7,10 @@ import { mapCodeToCodeWithSourcemap } from '../utils/mapCodeToCodeWithSourcemap'
 
 import {
   injectEntryScript,
-  isSafeDevEntryParam,
   rewriteEntryScripts,
   sanitizeDevEntryPath,
 } from '../utils/htmlEntryUtils';
+import { isPathWithinDirectory } from '../utils/pathNormalization';
 import { mfWarn } from '../utils/logger';
 import type { NormalizedModuleFederationOptions } from '../utils/normalizeModuleFederationOptions';
 import { getNormalizeModuleFederationOptions } from '../utils/normalizeModuleFederationOptions';
@@ -38,6 +38,16 @@ const HOST_INIT_PRELOAD_CHUNKS: ReadonlyArray<(name: string) => boolean> = [
 
 function escapeHtmlAttr(value: string) {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
+function isDevEntryParamUnderRoot(entryParam: string, projectRoot: string): boolean {
+  if (!entryParam || entryParam.includes('\0')) return false;
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(entryParam) || entryParam.startsWith('//')) {
+    return false;
+  }
+  const decoded = decodeURIComponent(entryParam);
+  const resolved = path.resolve(projectRoot, decoded.replace(/^\//, ''));
+  return isPathWithinDirectory(resolved, projectRoot);
 }
 
 function getExistingHrefSet(html: string) {
@@ -437,8 +447,8 @@ const addEntry = ({
             if (
               initSrc &&
               entrySrc &&
-              isSafeDevEntryParam(initSrc, server.config.root) &&
-              isSafeDevEntryParam(entrySrc, server.config.root)
+              isDevEntryParamUnderRoot(initSrc, server.config.root) &&
+              isDevEntryParamUnderRoot(entrySrc, server.config.root)
             ) {
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/javascript');

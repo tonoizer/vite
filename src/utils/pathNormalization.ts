@@ -7,13 +7,15 @@ export function isPathWithinDirectory(filePath: string, directory: string): bool
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
-/** Rejects manifest/output paths that escape their intended directory via `..` or absolutes. */
-export function sanitizeRelativeOutputPath(relativePath: string, fallback: string): string {
+export function resolveSafeRelativeOutputPath(
+  relativePath: string,
+  fallback: string
+): { path: string; usedFallback: boolean } {
   const normalized = path.normalize(relativePath).replace(/\\/g, '/');
   if (normalized.includes('..') || path.isAbsolute(normalized)) {
-    return fallback;
+    return { path: fallback, usedFallback: true };
   }
-  return normalized;
+  return { path: normalized, usedFallback: false };
 }
 
 export const COMMON_SHARED_SUBPATHS: Record<string, string[]> = {
