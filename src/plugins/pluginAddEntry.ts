@@ -7,6 +7,7 @@ import { mapCodeToCodeWithSourcemap } from '../utils/mapCodeToCodeWithSourcemap'
 
 import {
   injectEntryScript,
+  isSafeDevEntryParam,
   rewriteEntryScripts,
   sanitizeDevEntryPath,
 } from '../utils/htmlEntryUtils';
@@ -139,6 +140,7 @@ const addEntry = ({
   let devEntryPath = '';
   let entryFiles: string[] = [];
   let htmlFilePath: string | undefined;
+  let htmlFileExists = false;
   let _command: string;
   let emitFileId: string;
   let viteConfig: any;
@@ -432,7 +434,12 @@ const addEntry = ({
             const params = new URLSearchParams(query);
             const initSrc = params.get('init');
             const entrySrc = params.get('entry');
-            if (initSrc && entrySrc) {
+            if (
+              initSrc &&
+              entrySrc &&
+              isSafeDevEntryParam(initSrc, server.config.root) &&
+              isSafeDevEntryParam(entrySrc, server.config.root)
+            ) {
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/javascript');
               res.end(getBootstrapSource(initSrc, entrySrc));
@@ -565,6 +572,7 @@ const addEntry = ({
         }
 
         if (htmlFilePath) {
+          htmlFileExists = fs.existsSync(htmlFilePath);
           addHtmlScriptEntries(htmlFilePath);
         }
       },
@@ -590,6 +598,7 @@ const addEntry = ({
         }
         emitFileId = this.emitFile(emitFileOptions);
         if (htmlFilePath) {
+          htmlFileExists = fs.existsSync(htmlFilePath);
           addHtmlScriptEntries(htmlFilePath);
         }
       },
@@ -696,7 +705,7 @@ const addEntry = ({
               htmlContent = svelteKitHtml;
             } else {
               const scriptContent = `
-          <script type="module" src="${initPath}"></script>
+          <script type="module" src="${escapeHtmlAttr(initPath)}"></script>
         `;
               htmlContent = htmlContent.replace('<head>', `<head>${scriptContent}`);
             }
@@ -798,7 +807,7 @@ const addEntry = ({
         const isHydrationEntryFallback =
           inject === 'entry' &&
           entryFiles.length === 0 &&
-          (!htmlFilePath || !fs.existsSync(htmlFilePath)) &&
+          !htmlFileExists &&
           !clientInjected &&
           !isFederationInternalVirtualId(id) &&
           !id.includes('node_modules') &&
@@ -812,7 +821,7 @@ const addEntry = ({
         const isNuxtClientEntryFallback =
           _command === 'serve' &&
           inject === 'entry' &&
-          (!htmlFilePath || !fs.existsSync(htmlFilePath)) &&
+          !htmlFileExists &&
           !clientInjected &&
           !hasEntryBootstrapParam(id) &&
           !id.includes('node_modules/.vite') &&

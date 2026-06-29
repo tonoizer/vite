@@ -6,8 +6,10 @@ import {
   getMatchingNodeModuleSubpath,
   isNuxtClientBase,
   isNodeModulePath,
+  isPathWithinDirectory,
   normalizeNodeModulePath,
   removeTrailingSlash,
+  sanitizeRelativeOutputPath,
 } from '../pathNormalization';
 
 describe('pathNormalization', () => {
@@ -57,5 +59,20 @@ describe('pathNormalization', () => {
         'react'
       )
     ).toBe('react/jsx-runtime');
+  });
+
+  it('checks whether a path stays within a directory', () => {
+    expect(isPathWithinDirectory('/repo/src/App.tsx', '/repo')).toBe(true);
+    expect(isPathWithinDirectory('/repo', '/repo')).toBe(true);
+    expect(isPathWithinDirectory('/etc/passwd', '/repo')).toBe(false);
+  });
+
+  it('sanitizes relative output paths that escape via traversal', () => {
+    expect(sanitizeRelativeOutputPath('../../outside/mf-manifest.json', 'mf-manifest.json')).toBe(
+      'mf-manifest.json'
+    );
+    expect(sanitizeRelativeOutputPath('dist/mf-manifest.json', 'mf-manifest.json')).toBe(
+      'dist/mf-manifest.json'
+    );
   });
 });

@@ -1022,7 +1022,7 @@ describe('virtualRemoteEntry', () => {
     expect(code).toContain(
       'import {share as runtimeShare} from "@module-federation/runtime/helpers";'
     );
-    expect(code).toContain("__mfSelectSharedProvider(versions, pkg, share, 'version-first')");
+    expect(code).toContain('__mfSelectSharedProvider(versions, pkg, share, "version-first")');
     expect(code).not.toContain('versions[Object.keys(versions)[0]]');
   });
 
@@ -1058,7 +1058,7 @@ describe('virtualRemoteEntry', () => {
 
     expect(code).toContain('const usedShare = usedShared?.[pkg];');
     expect(code).toContain('const providerEntries = usedShare?.shareConfig?.import === false');
-    expect(code).toContain("__mfSelectSharedProvider(versionMap, pkg, usedShare, 'version-first')");
+    expect(code).toContain('__mfSelectSharedProvider(versionMap, pkg, usedShare, "version-first")');
     expect(code.indexOf('__mfSelectSharedProvider(versionMap')).toBeLessThan(
       code.indexOf('for (const [version, provider] of providerEntries)')
     );

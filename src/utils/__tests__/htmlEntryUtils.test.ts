@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { injectEntryScript, rewriteEntryScripts, sanitizeDevEntryPath } from '../htmlEntryUtils';
+import {
+  injectEntryScript,
+  isSafeDevEntryParam,
+  rewriteEntryScripts,
+  sanitizeDevEntryPath,
+} from '../htmlEntryUtils';
 
 const INIT_SRC = '/__mf__virtual/hostAutoInit.js';
 
@@ -78,5 +83,20 @@ describe('sanitizeDevEntryPath', () => {
     expect(sanitizeDevEntryPath('/node_modules\\__mf__virtual\\init.js')).toBe(
       '/node_modules/__mf__virtual/init.js'
     );
+  });
+});
+
+describe('isSafeDevEntryParam', () => {
+  const root = '/workspace/project';
+
+  it('allows root-relative project files', () => {
+    expect(isSafeDevEntryParam('/src/main.jsx', root)).toBe(true);
+    expect(isSafeDevEntryParam('src/main.jsx', root)).toBe(true);
+  });
+
+  it('rejects traversal and external URLs', () => {
+    expect(isSafeDevEntryParam('/../../../etc/passwd', root)).toBe(false);
+    expect(isSafeDevEntryParam('https://evil.test/remoteEntry.js', root)).toBe(false);
+    expect(isSafeDevEntryParam('//evil.test/remoteEntry.js', root)).toBe(false);
   });
 });
