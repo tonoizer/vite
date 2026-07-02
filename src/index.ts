@@ -1,4 +1,3 @@
-import { readFileSync, writeFileSync } from 'fs';
 import { createRequire } from 'module';
 import * as path from 'node:path';
 import { pathToFileURL } from 'url';
@@ -128,7 +127,7 @@ function ignoreFederationGeneratedFiles(
 }
 
 function isSharedResolverInternalImporter(importer: string | undefined): boolean {
-  return !!importer && (importer.includes(LOAD_SHARE_TAG) || importer.includes('__prebuild__'));
+  return !!importer && (importer.includes(LOAD_SHARE_TAG) || importer.includes(PREBUILD_TAG));
 }
 
 function isCommonJsImporter(importer: string | undefined): boolean {
@@ -249,12 +248,23 @@ function isFederationHtmlPreloadDependency(dep: string, includeSharedRuntime = f
 // Returns false for subpaths not exported by the installed package (e.g.
 // react/compiler-runtime on React 18) so we can exclude them from Vite's dep
 // optimizer instead of letting Vite's resolver error on the missing export.
+const sharedSubpathResolutionCache = new Map<string, boolean>();
+let sharedSubpathProjectRequire: ReturnType<typeof createRequire> | undefined;
+
 function canResolveSharedSubpath(subpath: string, projectRoot: string): boolean {
+  const cacheKey = `${projectRoot}\0${subpath}`;
+  const cached = sharedSubpathResolutionCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   try {
-    const req = createRequire(pathToFileURL(path.join(projectRoot, 'package.json')));
-    req.resolve(subpath);
+    sharedSubpathProjectRequire ??= createRequire(
+      pathToFileURL(path.join(projectRoot, 'package.json'))
+    );
+    sharedSubpathProjectRequire.resolve(subpath);
+    sharedSubpathResolutionCache.set(cacheKey, true);
     return true;
   } catch {
+    sharedSubpathResolutionCache.set(cacheKey, false);
     return false;
   }
 }
@@ -267,6 +277,22 @@ function canResolveSharedSubpath(subpath: string, projectRoot: string): boolean 
 function createEarlyVirtualModulesPlugin(options: NormalizedModuleFederationOptions): Plugin {
   const { shared, remotes } = options;
   const isLitShare = (pkg: string) => pkg === 'lit' || pkg.startsWith('lit/');
+  const materializedOptimizeDepsSources = new Set<string>();
+
+  function materializeSharedSource(
+    source: string,
+    shareItem: ShareItem,
+    command: string,
+    isRolldown: boolean
+  ) {
+    if (materializedOptimizeDepsSources.has(source)) return;
+    materializedOptimizeDepsSources.add(source);
+    writeLoadShareModule(source, shareItem, command, isRolldown);
+    if (shareItem.shareConfig?.import !== false) {
+      writePreBuildLibPath(source, shareItem);
+    }
+    addUsedShares(source);
+  }
 
   return {
     name: 'vite:module-federation-early-init',
@@ -359,19 +385,11 @@ function createEarlyVirtualModulesPlugin(options: NormalizedModuleFederationOpti
                 if (options?.kind?.startsWith('require') && !isReactSingleton) return;
                 if (isCommonJsImporter(importer) && !isReactSingleton) return;
                 if (isReactRequire) {
-                  writeLoadShareModule(source, shareItem, _command, isRolldown);
-                  if (shareItem.shareConfig?.import !== false) {
-                    writePreBuildLibPath(source, shareItem);
-                  }
-                  addUsedShares(source);
+                  materializeSharedSource(source, shareItem, _command, isRolldown);
                   return { id: 'module-federation:optimized-require-react' };
                 }
                 const loadSharePath = getLoadShareModulePath(source, isRolldown);
-                writeLoadShareModule(source, shareItem, _command, isRolldown);
-                if (shareItem.shareConfig?.import !== false) {
-                  writePreBuildLibPath(source, shareItem);
-                }
-                addUsedShares(source);
+                materializeSharedSource(source, shareItem, _command, isRolldown);
                 return { id: loadSharePath, external: true };
               },
             });
@@ -402,11 +420,7 @@ function createEarlyVirtualModulesPlugin(options: NormalizedModuleFederationOpti
                   const shareItem = shared[key];
                   const loadSharePath = getLoadShareModulePath(args.path, isRolldown);
                   const optimizedLoadSharePath = toViteOptimizedDepVirtualId(loadSharePath);
-                  writeLoadShareModule(args.path, shareItem, _command, isRolldown);
-                  if (shareItem.shareConfig?.import !== false) {
-                    writePreBuildLibPath(args.path, shareItem);
-                  }
-                  addUsedShares(args.path);
+                  materializeSharedSource(args.path, shareItem, _command, isRolldown);
                   return {
                     loader: 'js',
                     resolveDir: root,
@@ -1088,23 +1102,6 @@ function federation(mfUserOptions: ModuleFederationOptions): any[] {
         const nextCode = sanitizeFederationControlChunk(code, chunk.fileName, filename);
 
         return nextCode === code ? null : { code: nextCode, map: null };
-      },
-      writeBundle(outputOptions: NormalizedOutputOptionsLike, bundle: BundleLike) {
-        if (!outputOptions.dir) return;
-
-        for (const chunk of Object.values(bundle)) {
-          if (!isOutputChunk(chunk)) continue;
-          if (!isFederationControlChunk(chunk.fileName, filename)) continue;
-
-          const outputPath = path.join(outputOptions.dir, chunk.fileName);
-          const nextCode = sanitizeFederationControlChunk(
-            readFileSync(outputPath, 'utf-8'),
-            chunk.fileName,
-            filename
-          );
-
-          writeFileSync(outputPath, nextCode);
-        }
       },
     },
     {

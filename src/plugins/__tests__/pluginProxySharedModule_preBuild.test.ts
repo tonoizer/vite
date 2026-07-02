@@ -1015,11 +1015,11 @@ describe('pluginProxySharedModule_preBuild', () => {
       } as ConfigEnv
     );
 
-    // Sub-dependencies should be removed from shared
+    // Dev exclusions apply to an internal copy so normalized options stay stable.
     expect(shared).toHaveProperty('lit');
-    expect(shared).not.toHaveProperty('lit-html');
-    expect(shared).not.toHaveProperty('lit-element');
-    expect(shared).not.toHaveProperty('@lit/reactive-element');
+    expect(shared).toHaveProperty('lit-html');
+    expect(shared).toHaveProperty('lit-element');
+    expect(shared).toHaveProperty('@lit/reactive-element');
 
     // Warnings should have been emitted
     expect(warnSpy).toHaveBeenCalledWith(
@@ -1266,7 +1266,7 @@ describe('pluginProxySharedModule_preBuild', () => {
     );
 
     expect(shared).toHaveProperty('react');
-    expect(shared).not.toHaveProperty('some-util');
+    expect(shared).toHaveProperty('some-util');
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('"some-util" is a dependency of shared package "my-react-lib"')
     );

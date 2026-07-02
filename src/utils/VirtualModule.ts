@@ -2,6 +2,7 @@ import { basename } from 'node:path';
 import { packageNameDecode, packageNameEncode } from '../utils/packageUtils';
 import { createModuleFederationError } from './logger';
 import { getNormalizeModuleFederationOptions } from './normalizeModuleFederationOptions';
+import { escapeRegExp } from './stringHelpers';
 
 export function getSuffix(name: string): string {
   const base = basename(name);
@@ -31,10 +32,6 @@ const idCacheMap: Record<string, VirtualModule> = {};
 export const VITE_ID_PREFIX = '/@id/';
 export const VITE_NULL_BYTE_PLACEHOLDER = '__x00__';
 export const VITE_ENCODED_NULL_BYTE_PREFIX = `${VITE_ID_PREFIX}${VITE_NULL_BYTE_PLACEHOLDER}`;
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 export function createViteEncodedIdPrefixRegExp(sourcePrefix = ''): RegExp {
   return new RegExp(`^(?:${escapeRegExp(VITE_ENCODED_NULL_BYTE_PREFIX)})?${sourcePrefix}`);

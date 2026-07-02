@@ -13,13 +13,23 @@ type PackageJsonDependencyGroups = {
 };
 
 const dependencyPresenceCache = new Map<string, boolean>();
+const installedPackageJsonCache = new Map<string, InstalledPackageJson | undefined>();
 let packageDetectionCwd: string | undefined;
+
+function getInstalledPackageJsonCacheKey(pkg: string, opts?: PackageEntryConditions): string {
+  const cwd = opts?.cwd || getPackageDetectionCwd();
+  const packageName = opts?.packageName || getPackageName(pkg);
+  return `${cwd}\0${pkg}\0${packageName}\0${opts?.fromResolvedEntry ?? ''}`;
+}
 
 function getDependencyCacheKey(cwd: string, dependencyName: string) {
   return `${cwd}:${dependencyName}`;
 }
 
 export function setPackageDetectionCwd(cwd: string) {
+  if (packageDetectionCwd !== cwd) {
+    installedPackageJsonCache.clear();
+  }
   packageDetectionCwd = cwd;
 }
 
@@ -225,6 +235,20 @@ export const sharedCacheHelperCode = `const __mfGetSharedCacheDescriptor = (pkg,
           };`;
 
 export function getInstalledPackageJson(
+  pkg: string,
+  opts?: PackageEntryConditions
+): InstalledPackageJson | undefined {
+  const cacheKey = getInstalledPackageJsonCacheKey(pkg, opts);
+  if (installedPackageJsonCache.has(cacheKey)) {
+    return installedPackageJsonCache.get(cacheKey);
+  }
+
+  const result = resolveInstalledPackageJson(pkg, opts);
+  installedPackageJsonCache.set(cacheKey, result);
+  return result;
+}
+
+function resolveInstalledPackageJson(
   pkg: string,
   opts?: PackageEntryConditions
 ): InstalledPackageJson | undefined {

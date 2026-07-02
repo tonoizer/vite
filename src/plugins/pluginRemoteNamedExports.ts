@@ -20,10 +20,12 @@
  */
 import type { Plugin } from 'vite';
 import { CodeRewriter, type SourceMapLike } from '../utils/codeRewriter';
+import { mfWarn } from '../utils/logger';
 import type { NormalizedModuleFederationOptions } from '../utils/normalizeModuleFederationOptions';
 import { LOAD_REMOTE_TAG, LOAD_SHARE_TAG } from '../virtualModules';
 
 const JS_EXTENSIONS_RE = /\.(?:[mc]?[jt]sx?|vue|svelte)(?:\?|$)/;
+const warnedExportAllSources = new Set<string>();
 
 // ── Normalized import descriptors ─────────────────────────────────
 
@@ -276,10 +278,13 @@ function applyRewrites(
       }
 
       case 'export-all': {
-        console.warn(
-          `[module-federation] "export * from '${imp.source}'" is not supported ` +
-            `with Rolldown — use explicit named re-exports instead. (${id})`
-        );
+        const warnKey = `${imp.source}\0${id}`;
+        if (!warnedExportAllSources.has(warnKey)) {
+          warnedExportAllSources.add(warnKey);
+          mfWarn(
+            `"export * from '${imp.source}'" is not supported with Rolldown — use explicit named re-exports instead. (${id})`
+          );
+        }
         break;
       }
 
