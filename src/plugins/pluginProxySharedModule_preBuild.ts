@@ -234,7 +234,7 @@ export function proxySharedModule(options: {
   include?: string | string[];
   exclude?: string | string[];
 }): Plugin[] {
-  const { shared = {} } = options;
+  let shared = options.shared ?? {};
   let _config: ResolvedConfig | undefined;
   let _command = 'serve';
   let useDirectReactImport = false;
@@ -288,6 +288,8 @@ export function proxySharedModule(options: {
         useDirectReactImport = isVinext || isAstro;
 
         if (command === 'serve') {
+          // Work on a shallow copy so dev-only exclusions do not mutate normalized options.
+          shared = { ...shared };
           excludeSharedSubDependencies(shared);
         }
       },

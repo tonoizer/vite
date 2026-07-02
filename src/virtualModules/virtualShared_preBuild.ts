@@ -38,6 +38,8 @@ const JS_IDENTIFIER_REGEX = new RegExp(
   '^[$_\\p{ID_Start}][$_\\u200C\\u200D\\p{ID_Continue}]*$',
   'u'
 );
+const esmNamedExportsCache = new Map<string, string[]>();
+const sharedNamedExportsCache = new Map<string, string[]>();
 
 function escapeGeneratedStringLiteral(value: string): string {
   return JSON.stringify(value).replace(/[<>\u2028\u2029]/g, (char) => {
@@ -93,10 +95,16 @@ function getPackageEsmEntryPath(pkg: string): string | undefined {
 }
 
 function getEsmNamedExportsFromFile(entryPath: string | undefined): string[] {
+  if (!entryPath) return [];
+  const cached = esmNamedExportsCache.get(entryPath);
+  if (cached) return cached;
+
   try {
-    if (!entryPath) return [];
-    return getNamedExportsViaRegex(readFileSync(entryPath, 'utf-8'), entryPath);
+    const exports = getNamedExportsViaRegex(readFileSync(entryPath, 'utf-8'), entryPath);
+    esmNamedExportsCache.set(entryPath, exports);
+    return exports;
   } catch {
+    esmNamedExportsCache.set(entryPath, []);
     return [];
   }
 }
@@ -277,13 +285,22 @@ function getPackageNamedExports(pkg: string): string[] {
 
 function getSharedNamedExports(pkg: string, shareItem?: ShareItem): string[] {
   const configuredImport = shareItem?.shareConfig.import;
+  const cacheKey = `${pkg}\0${typeof configuredImport === 'string' ? configuredImport : ''}`;
+  const cached = sharedNamedExportsCache.get(cacheKey);
+  if (cached) return cached;
+
+  let exports: string[];
   if (typeof configuredImport === 'string') {
     const configuredImportPath = resolveConfiguredImportPath(configuredImport);
     const configuredNamedExports = getEsmNamedExportsFromFile(configuredImportPath);
-    if (configuredNamedExports.length > 0) return configuredNamedExports;
+    exports =
+      configuredNamedExports.length > 0 ? configuredNamedExports : getPackageNamedExports(pkg);
+  } else {
+    exports = getPackageNamedExports(pkg);
   }
 
-  return getPackageNamedExports(pkg);
+  sharedNamedExportsCache.set(cacheKey, exports);
+  return exports;
 }
 
 export function getLocalProviderImportPath(pkg: string): string | undefined {

@@ -251,9 +251,7 @@ function orderSharedDependenciesFirst(sharedPackages: string[]) {
 
 function getShareItemForPreload(pkg: string) {
   const shared = getNormalizeModuleFederationOptions().shared;
-  const packageName = pkg.startsWith('@')
-    ? pkg.split('/').slice(0, 2).join('/')
-    : pkg.split('/')[0];
+  const packageName = getPackageName(pkg);
   const wildcardKey = `${packageName}/`;
 
   if (isExplicitSharedKey(pkg)) return shared[pkg];
