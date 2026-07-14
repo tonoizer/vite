@@ -730,7 +730,7 @@ export function generateRemoteEntry(
   }
   ${getRuntimeModuleCacheBootstrapCode()}
   const initTokens = {}
-  const shareScopeName = ${JSON.stringify(options.shareScope)}
+  const shareScopeNames = Array.isArray(${JSON.stringify(options.shareScope)}) ? ${JSON.stringify(options.shareScope)} : [${JSON.stringify(options.shareScope)}]
   const mfName = ${JSON.stringify(options.name)}
   let localSharedImportMapPromise
   let exposesMapPromise
@@ -786,9 +786,10 @@ export function generateRemoteEntry(
       if (allInstances) {
         ${normalizeRuntimeShareCode}
         for (const [, scopes] of Object.entries(allInstances)) {
-          const scopeShare = scopes?.['${options.shareScope}'];
-          if (!scopeShare) continue;
-          for (const [pkg, versionMap] of Object.entries(scopeShare)) {
+          for (const scopeName of shareScopeNames) {
+            const scopeShare = scopes?.[scopeName];
+            if (!scopeShare) continue;
+            for (const [pkg, versionMap] of Object.entries(scopeShare)) {
             const usedShare = usedShared?.[pkg];
             const selectedProvider = usedShare?.shareConfig?.import === false
               ? __mfSelectSharedProvider(versionMap, pkg, usedShare, '${options.shareStrategy}')
@@ -798,7 +799,7 @@ export function generateRemoteEntry(
               : Object.entries(versionMap);
             for (const [version, provider] of providerEntries) {
               if (!provider.lib) continue;
-              const cacheDescriptor = __mfGetSharedCacheDescriptor(pkg, provider.shareConfig?.singleton, version, ${JSON.stringify(options.shareScope)});
+              const cacheDescriptor = __mfGetSharedCacheDescriptor(pkg, provider.shareConfig?.singleton, version, scopeName);
               if (__mfReadSharedCache(__mfModuleCache.share, cacheDescriptor) !== undefined) continue;
               const mod = typeof provider.lib === "function" ? provider.lib() : provider.lib;
               const resolved = await Promise.resolve(mod);
@@ -811,6 +812,7 @@ export function generateRemoteEntry(
                 }
               }
             }
+          }
           }
         }
       }
@@ -849,22 +851,25 @@ export function generateRemoteEntry(
       ${options.shareStrategy ? `shareStrategy: '${options.shareStrategy}'` : ''}
     });
     // handling circular init calls
-    var initToken = initTokens[shareScopeName];
-    if (!initToken)
-      initToken = initTokens[shareScopeName] = { from: mfName };
-    if (initScope.indexOf(initToken) >= 0) return;
-    initScope.push(initToken);
-    initRes.initShareScopeMap('${options.shareScope}', shared);
-    try {
-      await retrySharedInit(async () => {
-        await Promise.all(await initRes.initializeSharing('${options.shareScope}', {
-          strategy: '${options.shareStrategy}',
-          from: "build",
-          initScope
-        }));
-      });
-    } catch (e) {
-      console.error('[Module Federation]', e)
+    for (const shareScopeName of shareScopeNames) {
+      var initToken = initTokens[shareScopeName];
+      if (!initToken)
+        initToken = initTokens[shareScopeName] = { from: mfName };
+      if (initScope.indexOf(initToken) >= 0) continue;
+      initScope.push(initToken);
+      const scopeShare = Array.isArray(${JSON.stringify(options.shareScope)}) ? (shared?.[shareScopeName] || {}) : shared;
+      initRes.initShareScopeMap(shareScopeName, scopeShare);
+      try {
+        await retrySharedInit(async () => {
+          await Promise.all(await initRes.initializeSharing(shareScopeName, {
+            strategy: '${options.shareStrategy}',
+            from: "build",
+            initScope
+          }));
+        });
+      } catch (e) {
+        console.error('[Module Federation]', e)
+      }
     }
     ${generateTreeShakingSharedResolutionCode(hasTreeShakingShared)}
     for (const [pkg, share] of Object.entries(usedShared)) {
