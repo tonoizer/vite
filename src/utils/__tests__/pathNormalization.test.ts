@@ -83,9 +83,22 @@ describe('pathNormalization', () => {
       getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/client.mjs', ['react-dom/client'])
     ).toBe('react-dom/client');
     expect(
+      getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/client.js#app', [
+        'react-dom/client',
+      ])
+    ).toBe('react-dom/client');
+    expect(
       getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/server/render.js', [
         'react-dom/server',
       ])
+    ).toBe('react-dom/server');
+
+    // A dotted sibling earlier in the path must not hide a later exact module.
+    expect(
+      getMatchingNodeModuleSubpath(
+        '/repo/node_modules/react-dom/server.browser.js/vendor/node_modules/react-dom/server.js',
+        ['react-dom/server']
+      )
     ).toBe('react-dom/server');
   });
 

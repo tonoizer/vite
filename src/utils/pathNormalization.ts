@@ -100,10 +100,19 @@ const NODE_MODULE_FILE_EXT_RE = /^\.[cm]?[jt]sx?$/i;
 
 function matchesNodeModuleCandidate(normalized: string, candidate: string): boolean {
   const marker = `/node_modules/${candidate}`;
-  const index = normalized.indexOf(marker);
-  if (index === -1) return false;
-  const after = normalized.slice(index + marker.length);
-  return after === '' || after.startsWith('/') || NODE_MODULE_FILE_EXT_RE.test(after);
+  let from = 0;
+  while (from < normalized.length) {
+    const index = normalized.indexOf(marker, from);
+    if (index === -1) return false;
+    const after = normalized.slice(index + marker.length);
+    const boundary = after.search(/[?#]/);
+    const afterPath = boundary === -1 ? after : after.slice(0, boundary);
+    if (afterPath === '' || afterPath.startsWith('/') || NODE_MODULE_FILE_EXT_RE.test(afterPath)) {
+      return true;
+    }
+    from = index + 1;
+  }
+  return false;
 }
 
 export function getMatchingNodeModuleSubpath(
