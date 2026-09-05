@@ -353,6 +353,35 @@ describe('pluginProxySharedModule_preBuild', () => {
       expect(findSharedKey('react-dom/client', shared)).toBe('react-dom');
     });
 
+    it('prefers the longest trailing-slash wildcard prefix', () => {
+      const wildcardShare = (name: string): NormalizedShared[string] => ({
+        name,
+        from: '',
+        version: '1.0.0',
+        scope: 'default',
+        shareConfig: {
+          singleton: false,
+          requiredVersion: '^1.0.0',
+          strictVersion: false,
+        },
+      });
+
+      // Shorter prefix inserted first so first-key-wins would pick `@scope/ui/`.
+      const shorterFirst: NormalizedShared = {
+        '@scope/ui/': wildcardShare('@scope/ui/'),
+        '@scope/ui/forms/': wildcardShare('@scope/ui/forms/'),
+      };
+      expect(findSharedKey('@scope/ui/forms/Button', shorterFirst)).toBe('@scope/ui/forms/');
+      expect(findSharedKey('@scope/ui/button', shorterFirst)).toBe('@scope/ui/');
+
+      const longerFirst: NormalizedShared = {
+        '@scope/ui/forms/': wildcardShare('@scope/ui/forms/'),
+        '@scope/ui/': wildcardShare('@scope/ui/'),
+      };
+      expect(findSharedKey('@scope/ui/forms/Button', longerFirst)).toBe('@scope/ui/forms/');
+      expect(findSharedKey('@scope/ui/button', longerFirst)).toBe('@scope/ui/');
+    });
+
     it('caches per source without changing misses', () => {
       const shared = makeShared();
 
