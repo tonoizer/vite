@@ -55,7 +55,7 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
     }
 
     // Handle Function (returns the function's source code)
-    if (type === 'function') return val.toString();
+    if (type === 'function') return functionToExpression(val);
 
     // 2. Handle special built-in objects
     if (val instanceof Date) return `new Date(${toSafeJsLiteral(val.toISOString())})`;
@@ -115,4 +115,54 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
   }
 
   return `{${topLevelProps.join(', ')}}`;
+}
+
+const NATIVE_FUNCTION_SOURCE = /\{\s*\[native code\]\s*\}\s*$/;
+
+/**
+ * Turns `Function#toString()` output into a JS expression that is valid as an
+ * object-literal value.
+ *
+ * Method shorthand (`onError() { … }`) is not a valid expression after a `:`,
+ * so it is rewritten as a function expression. Native functions have no
+ * reconstructable source (`function parse() { [native code] }`) and serialize
+ * as `undefined` so the generated object stays loadable.
+ */
+function functionToExpression(fn: Function): string {
+  let source: string;
+  try {
+    source = Function.prototype.toString.call(fn).trim();
+  } catch {
+    return 'undefined';
+  }
+
+  if (NATIVE_FUNCTION_SOURCE.test(source) || /^(async\s+)?(?:get|set)\s+/.test(source)) {
+    return 'undefined';
+  }
+
+  // FunctionExpression, AsyncFunction, Generator, ClassExpression, or ArrowFunction.
+  if (
+    /^(async\s+)?function\b/.test(source) ||
+    /^(async\s*)?\(/.test(source) ||
+    /^class\b/.test(source) ||
+    /^(async\s+)?[$_\p{ID_Start}][$\p{ID_Continue}]*\s*=>/u.test(source)
+  ) {
+    return source;
+  }
+
+  // Method / generator-method shorthand from an object literal.
+  if (/^async\s*\*/.test(source)) {
+    return source.replace(/^async\s*\*\s*/, 'async function* ');
+  }
+  if (source.startsWith('*')) {
+    return source.replace(/^\*\s*/, 'function* ');
+  }
+  if (/^async\s+[$_\p{ID_Start}\[]/u.test(source)) {
+    return source.replace(/^async\s+/, 'async function ');
+  }
+  if (/^[$_\p{ID_Start}\[]/u.test(source)) {
+    return `function ${source}`;
+  }
+
+  return 'undefined';
 }
