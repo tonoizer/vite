@@ -277,12 +277,10 @@ describe('virtualRuntimeInitStatus', () => {
   });
 
   it('maps configured remotes through the scoped runtime alias', async () => {
-    const { getRuntimeRemoteAlias, getSsrRuntimeRemotes } = await import(
-      '../virtualRuntimeInitStatus'
-    );
-    const { normalizeModuleFederationOptions } = await import(
-      '../../utils/normalizeModuleFederationOptions'
-    );
+    const { getRuntimeRemoteAlias, getSsrRuntimeRemotes } =
+      await import('../virtualRuntimeInitStatus');
+    const { normalizeModuleFederationOptions } =
+      await import('../../utils/normalizeModuleFederationOptions');
 
     const options = normalizeModuleFederationOptions({
       name: 'ssr-host',
