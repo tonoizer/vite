@@ -95,4 +95,24 @@ describe('generateRuntimePluginOption - safe JS literal', () => {
 
     expect(serializeRuntimeOptions({ circular })).toBe('{"circular": {"self": "__circular__"}}');
   });
+
+  it('serializes method-shorthand functions as evaluable object-literal values', () => {
+    const code = serializeRuntimeOptions({
+      onError() {
+        return 1;
+      },
+    });
+    expect(code).toMatch(/"onError":\s*function\s+onError\s*\(/);
+    const evaluated = new Function(`return (${code});`)() as { onError: () => number };
+    expect(evaluated.onError()).toBe(1);
+  });
+
+  it('does not emit native-function source that cannot be parsed', () => {
+    const code = serializeRuntimeOptions({ parse: JSON.parse });
+    // Native functions stringify as `function parse() { [native code] }`, which
+    // is not valid JS. Skip them with `undefined` so the object literal loads.
+    expect(code).toBe('{"parse": undefined}');
+    expect(() => new Function(`return (${code});`)()).not.toThrow();
+    expect(new Function(`return (${code});`)().parse).toBeUndefined();
+  });
 });
