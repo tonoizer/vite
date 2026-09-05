@@ -572,9 +572,13 @@ export function getExtFromNpmPackage(packageString: string) {
  * on the plugin hook context, with Rolldown metadata kept as a compatibility fallback.
  */
 export function getIsRolldown(ctx: unknown): boolean {
-  const viteVersion = (ctx as any)?.meta?.viteVersion;
+  if (!ctx || typeof ctx !== 'object') return false;
+  const meta = 'meta' in ctx ? ctx.meta : undefined;
+  if (!meta || typeof meta !== 'object') return false;
+  const viteVersion = 'viteVersion' in meta ? meta.viteVersion : undefined;
   const viteMajor = Number(String(viteVersion ?? '').split('.')[0]);
-  return (Number.isFinite(viteMajor) && viteMajor >= 8) || !!(ctx as any)?.meta?.rolldownVersion;
+  const rolldownVersion = 'rolldownVersion' in meta ? meta.rolldownVersion : undefined;
+  return (Number.isFinite(viteMajor) && viteMajor >= 8) || !!rolldownVersion;
 }
 
 /** Walk up from Vite `config.root` (Nuxt may point at `.nuxt` cache dirs). */

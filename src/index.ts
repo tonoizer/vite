@@ -6,6 +6,7 @@ import type {
   ConfigEnv,
   EnvironmentOptions,
   Plugin,
+  PluginOption,
   ResolvedConfig,
   UserConfig,
   ViteDevServer,
@@ -977,7 +978,7 @@ function applyBuildTimeRuntimeDefines(
   }
 }
 
-function loadPluginDts(options: NormalizedModuleFederationOptions): any[] {
+function loadPluginDts(options: NormalizedModuleFederationOptions): PluginOption[] {
   if (options.dts === false) {
     return [];
   }

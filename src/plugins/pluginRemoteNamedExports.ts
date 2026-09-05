@@ -23,6 +23,7 @@ import type { Plugin } from 'vite';
 import { createCodePositionMap } from '../utils/codePositionMap';
 import { CodeRewriter, type SourceMapLike } from '../utils/codeRewriter';
 import { findModuleImportDescriptors } from '../utils/htmlEntryUtils';
+import { mfWarn } from '../utils/logger';
 import type { NormalizedModuleFederationOptions } from '../utils/normalizeModuleFederationOptions';
 import {
   LOAD_REMOTE_TAG,
@@ -78,12 +79,16 @@ interface WalkContext {
   skip(): void;
 }
 
+type AstNode = { type: string; [key: string]: unknown };
+
 interface WalkVisitor {
-  enter(this: WalkContext, node: any): void;
+  enter(this: WalkContext, node: AstNode): void;
 }
 
-function isAstNode(value: unknown): value is { type: string; [key: string]: unknown } {
-  return !!value && typeof value === 'object' && typeof (value as any).type === 'string';
+function isAstNode(value: unknown): value is AstNode {
+  return (
+    typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string'
+  );
 }
 
 function walkAST(root: unknown, visitor: WalkVisitor): void {
@@ -271,8 +276,8 @@ function applyRewrites(
       }
 
       case 'export-all': {
-        console.warn(
-          `[module-federation] "export * from '${imp.source}'" is not supported ` +
+        mfWarn(
+          `"export * from '${imp.source}'" is not supported ` +
             `with Rolldown — use explicit named re-exports instead. (${id})`
         );
         break;
@@ -282,6 +287,10 @@ function applyRewrites(
         ms.overwrite(imp.start, imp.end, wrapDynamicImport(imp.originalText));
         changed = true;
         break;
+      }
+      default: {
+        const _exhaustive: never = imp;
+        void _exhaustive;
       }
     }
   }
