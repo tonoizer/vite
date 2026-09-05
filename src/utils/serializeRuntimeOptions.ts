@@ -151,16 +151,17 @@ function functionToExpression(fn: Function): string {
   }
 
   // Method / generator-method shorthand from an object literal.
+  // Computed names (`[foo]()` ) cannot be rewritten as a function expression.
   if (/^async\s*\*/.test(source)) {
     return source.replace(/^async\s*\*\s*/, 'async function* ');
   }
   if (source.startsWith('*')) {
     return source.replace(/^\*\s*/, 'function* ');
   }
-  if (/^async\s+[$_\p{ID_Start}\[]/u.test(source)) {
+  if (/^async\s+[$_\p{ID_Start}]/u.test(source)) {
     return source.replace(/^async\s+/, 'async function ');
   }
-  if (/^[$_\p{ID_Start}\[]/u.test(source)) {
+  if (/^[$_\p{ID_Start}]/u.test(source)) {
     return `function ${source}`;
   }
 

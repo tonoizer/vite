@@ -269,8 +269,8 @@ describe('pluginDevRemoteHmr', () => {
   });
 
   it.each([
-    ['::', 'ws://localhost:4173/__mf_hmr?token=dev-token'],
-    ['::1', 'ws://[::1]:4173/__mf_hmr?token=dev-token'],
+    ['::', 'ws://localhost:4173/?token=dev-token'],
+    ['::1', 'ws://[::1]:4173/?token=dev-token'],
   ] as const)('advertises a valid HMR WebSocket URL when server.host is %s', (host, wsUrl) => {
     const { server, middlewares } = createServer({
       config: {
