@@ -13,6 +13,7 @@ import {
   getRuntimeRemoteCachePrefix,
   getRuntimeInitStatusImportId,
   getRuntimeModuleCacheBootstrapCode,
+  getSsrRuntimeRemotes,
   MODULE_CACHE_SHARE_SCOPE_KEY,
 } from './virtualRuntimeInitStatus';
 
@@ -433,11 +434,7 @@ export function generateRemotes(
       ? `runtime.registerRemotes([${JSON.stringify(remoteRegistration)}]);`
       : '';
   const hostAutoInitPath = getHostAutoInitPath(options);
-  const ssrRemotes = Object.entries(resolvedOptions.remotes).map(([name, item]) => ({
-    name: getRuntimeRemoteAlias(name, options),
-    entry: item.entry,
-    type: item.type ?? 'module',
-  }));
+  const ssrRemotes = getSsrRuntimeRemotes(resolvedOptions.remotes, options);
   const browserHostInitCode = `import(${JSON.stringify(hostAutoInitPath)})
         .then((mod) => mod.hostInitPromise)
         .then(initResolve, initReject);`;
