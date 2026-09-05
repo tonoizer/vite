@@ -95,4 +95,20 @@ describe('generateRuntimePluginOption - safe JS literal', () => {
 
     expect(serializeRuntimeOptions({ circular })).toBe('{"circular": {"self": "__circular__"}}');
   });
+
+  it('serializes method-shorthand functions as evaluable object-literal values', () => {
+    const code = serializeRuntimeOptions({
+      onError() {
+        return 1;
+      },
+    });
+    const evaluated = new Function(`return (${code});`)() as { onError: () => number };
+    expect(evaluated.onError()).toBe(1);
+  });
+
+  it('does not emit native-function source that cannot be parsed', () => {
+    expect(() =>
+      new Function(`return (${serializeRuntimeOptions({ parse: JSON.parse })});`)()
+    ).not.toThrow();
+  });
 });
