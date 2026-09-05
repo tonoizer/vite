@@ -6,8 +6,16 @@ export const COMMON_SHARED_SUBPATHS: Record<string, string[]> = {
   // entries into the client share set. SSR imports them as normal modules, or
   // users add an explicit shared key.
   'react-dom': ['react-dom/client', 'react-dom/profiling'],
-  'solid-js': ['solid-js/web', 'solid-js/store', 'solid-js/html', 'solid-js/h'],
-  zustand: ['zustand/vanilla', 'zustand/react'],
+  'solid-js': [
+    'solid-js/web',
+    'solid-js/store',
+    'solid-js/html',
+    'solid-js/h',
+    'solid-js/jsx-runtime',
+    'solid-js/jsx-dev-runtime',
+  ],
+  // First-party entry points only. zustand/context is not a v5 export.
+  zustand: ['zustand/vanilla', 'zustand/react', 'zustand/middleware', 'zustand/shallow'],
 };
 
 const VITE_DEFAULT_ASSET_TYPES = [
