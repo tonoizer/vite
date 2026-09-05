@@ -101,7 +101,7 @@ interface FederationInstanceLike {
   loadShare?: (name: string) => Promise<false | (() => unknown | undefined) | undefined>;
 }
 
-function findVmSharedKey(
+export function findVmSharedKey(
   specifier: string,
   shared: Record<string, { scope?: string | string[] } | undefined> | undefined
 ): string | undefined {
