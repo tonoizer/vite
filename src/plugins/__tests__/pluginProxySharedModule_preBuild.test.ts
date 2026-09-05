@@ -1171,6 +1171,98 @@ describe('pluginProxySharedModule_preBuild', () => {
     readFileSyncMock.mockReset().mockReturnValue('{}');
   });
 
+  it('does not proxy shared dependency cycle edges from unshared workspace packages', async () => {
+    hasPackageDependencyMock.mockReturnValue(false);
+    getInstalledPackageEntryMock.mockImplementation((pkg) =>
+      pkg === 'react' ? '/repo/packages/react/index.js' : undefined
+    );
+    // vue -> bridge -> vue: `bridge` is a workspace package that is not shared, so it gets inlined into vue's
+    // fallback. Its import of vue is a cycle edge exactly like one from a node_modules dependency.
+    existsSyncMock.mockImplementation(
+      (p: string) =>
+        p === '/repo/apps/remote/node_modules/vue/package.json' ||
+        p === '/repo/packages/bridge/package.json'
+    );
+    readFileSyncMock.mockImplementation((p: string) => {
+      if (p.endsWith('/vue/package.json')) return '{"dependencies":{"bridge":"workspace:*"}}';
+      if (p.endsWith('/bridge/package.json')) return '{"name":"bridge"}';
+      return '{}';
+    });
+
+    const plugins = proxySharedModule({ shared: makeShared() });
+    const proxyPlugin = getProxyPlugin(plugins);
+    const sharedResolvePlugin = getSharedResolvePlugin(plugins);
+
+    callHook(
+      proxyPlugin.config,
+      {
+        meta: createPluginMeta(),
+        resolve: async (id: string) => ({ id: `/resolved/${id}` }),
+      } as unknown as ConfigPluginContext,
+      { resolve: { alias: [] } },
+      { command: 'build', mode: 'production' } as ConfigEnv
+    );
+
+    const resolution = await callHook(
+      sharedResolvePlugin.resolveId,
+      { resolve: async (id: string) => ({ id: `/resolved/${id}` }) } as any,
+      'vue',
+      '/repo/packages/bridge/src/title.js',
+      { isEntry: false }
+    );
+
+    expect(resolution).toBeUndefined();
+    expect(writeLoadShareModuleMock).not.toHaveBeenCalled();
+    existsSyncMock.mockReset().mockReturnValue(false);
+    readFileSyncMock.mockReset().mockReturnValue('{}');
+  });
+
+  it('still proxies imports from unshared workspace packages outside the shared package cycle', async () => {
+    normalizeModuleFederationOptions({ name: 'host', shared: {} });
+    hasPackageDependencyMock.mockReturnValue(false);
+    getInstalledPackageEntryMock.mockImplementation((pkg) =>
+      pkg === 'react' ? '/repo/packages/react/index.js' : undefined
+    );
+    // `widgets` is a workspace package vue does not depend on: no cycle, the import is proxied as usual.
+    existsSyncMock.mockImplementation(
+      (p: string) =>
+        p === '/repo/apps/remote/node_modules/vue/package.json' ||
+        p === '/repo/packages/widgets/package.json'
+    );
+    readFileSyncMock.mockImplementation((p: string) => {
+      if (p.endsWith('/vue/package.json')) return '{"dependencies":{"react":"1"}}';
+      if (p.endsWith('/widgets/package.json')) return '{"name":"widgets"}';
+      return '{}';
+    });
+
+    const plugins = proxySharedModule({ shared: makeShared() });
+    const proxyPlugin = getProxyPlugin(plugins);
+    const sharedResolvePlugin = getSharedResolvePlugin(plugins);
+
+    callHook(
+      proxyPlugin.config,
+      {
+        meta: createPluginMeta(),
+        resolve: async (id: string) => ({ id: `/resolved/${id}` }),
+      } as unknown as ConfigPluginContext,
+      { resolve: { alias: [] } },
+      { command: 'build', mode: 'production' } as ConfigEnv
+    );
+
+    const resolution = await callHook(
+      sharedResolvePlugin.resolveId,
+      { resolve: async (id: string) => ({ id: `/resolved/${id}` }) } as any,
+      'vue',
+      '/repo/packages/widgets/src/panel.js',
+      { isEntry: false }
+    );
+
+    expect(resolution).toBeDefined();
+    expect(writeLoadShareModuleMock).toHaveBeenCalled();
+    existsSyncMock.mockReset().mockReturnValue(false);
+    readFileSyncMock.mockReset().mockReturnValue('{}');
+  });
+
   it('keeps walking the dependency tree past an unresolvable optional peer when detecting cycles', async () => {
     hasPackageDependencyMock.mockReturnValue(false);
     getInstalledPackageEntryMock.mockImplementation((pkg) =>

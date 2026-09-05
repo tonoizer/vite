@@ -291,9 +291,47 @@ export function getSharedPackageFromFile(
     sharedPackageDirectoryCache.set(shared, cached);
   }
   const normalizedImporter = normalizePathForImport(importer);
-  return [...cached.entries].find(
+  const sharedPackage = [...cached.entries].find(
     ([dir]) => normalizedImporter === dir || normalizedImporter.startsWith(`${dir}/`)
   )?.[1];
+  // A workspace package that is not shared still takes part in package-level cycles: its files get inlined
+  // into the fallback of the share that depends on it, so its import of another share must be judged
+  // the same way as an import from inside `node_modules` (which resolves to a package name above).
+  return sharedPackage ?? getWorkspacePackageNameFromFile(normalizedImporter);
+}
+
+const workspacePackageNameCache = new Map<string, string | undefined>();
+
+/** Name from the nearest `package.json` above `file`, for files outside `node_modules`. */
+function getWorkspacePackageNameFromFile(file: string): string | undefined {
+  const filePath = file.split('?')[0];
+  if (!path.isAbsolute(filePath) || isNodeModulePath(filePath)) return;
+  const visited: string[] = [];
+  let dir = path.dirname(filePath);
+  let name: string | undefined;
+  while (true) {
+    if (workspacePackageNameCache.has(dir)) {
+      name = workspacePackageNameCache.get(dir);
+      break;
+    }
+    visited.push(dir);
+    const manifestPath = path.join(dir, 'package.json');
+    if (existsSync(manifestPath)) {
+      try {
+        const manifestName = (JSON.parse(readFileSync(manifestPath, 'utf-8')) as { name?: unknown })
+          .name;
+        name = typeof manifestName === 'string' ? manifestName : undefined;
+      } catch {
+        name = undefined;
+      }
+      break;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  for (const visitedDir of visited) workspacePackageNameCache.set(visitedDir, name);
+  return name;
 }
 
 const dependencyManifestCache = new Map<string, InstalledPackageJson | undefined>();
@@ -510,6 +548,7 @@ export function proxySharedModule(options: {
         emittedTreeShakingProviders.clear();
         sharedDependencyCache.clear();
         dependencyManifestCache.clear();
+        workspacePackageNameCache.clear();
         const isVinext = hasPackageDependency('vinext');
         const isAstro = hasPackageDependency('astro');
         const isRolldown = getIsRolldown(this);
