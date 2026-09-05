@@ -38,24 +38,22 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
   /**
    * Recursive inner function to serialize any value into a source code string.
    */
-  function valueToCode(val: any): string {
+  function valueToCode(val: unknown): string {
     // 1. Handle primitive values
     if (val === null) return 'null';
 
-    const type = typeof val;
-
-    if (type === 'string') return toSafeJsLiteral(val);
-    if (type === 'number' || type === 'boolean') return String(val);
-    if (type === 'undefined') return 'undefined';
+    if (typeof val === 'string') return toSafeJsLiteral(val);
+    if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+    if (typeof val === 'undefined') return 'undefined';
 
     // Handle Symbol
-    if (type === 'symbol') {
+    if (typeof val === 'symbol') {
       const desc = val.description ?? '';
       return `Symbol(${toSafeJsLiteral(desc)})`;
     }
 
     // Handle Function (returns the function's source code)
-    if (type === 'function') return val.toString();
+    if (typeof val === 'function') return val.toString();
 
     // 2. Handle special built-in objects
     if (val instanceof Date) return `new Date(${toSafeJsLiteral(val.toISOString())})`;
@@ -64,7 +62,7 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
     }
 
     // 3. Handle objects while detecting cycles in the active recursion path.
-    if (type === 'object') {
+    if (typeof val === 'object') {
       if (ancestors.has(val)) {
         return `"__circular__"`;
       }
@@ -87,10 +85,11 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
           return `new Set([${items.join(', ')}])`;
         }
 
+        const record = val as Record<string, unknown>;
         const properties: string[] = [];
-        for (const key in val) {
-          if (Object.prototype.hasOwnProperty.call(val, key)) {
-            properties.push(`${toSafeJsLiteral(key)}: ${valueToCode(val[key])}`);
+        for (const key in record) {
+          if (Object.prototype.hasOwnProperty.call(record, key)) {
+            properties.push(`${toSafeJsLiteral(key)}: ${valueToCode(record[key])}`);
           }
         }
         return `{${properties.join(', ')}}`;

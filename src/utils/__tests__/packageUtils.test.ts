@@ -7,6 +7,7 @@ import { normalizePathForImport } from '../buildPaths';
 import {
   getInstalledPackageEntry,
   getInstalledPackageJson,
+  getIsRolldown,
   getPackageNameFromNodeModulePath,
   getSharedCacheDescriptor,
   getSharedCacheKey,
@@ -767,5 +768,15 @@ describe('getSharedCacheKey', () => {
     runtime.writeFull(cache, descriptor, full);
     expect(runtime.read(cache, descriptor, 'host')).toBe(full);
     expect(runtime.read(cache, descriptor, 'remote')).toBe(full);
+  });
+});
+
+describe('getIsRolldown', () => {
+  it('treats Vite 8+ plugin context as Rolldown without casting through any', () => {
+    expect(getIsRolldown({ meta: { viteVersion: '8.2.0' } })).toBe(true);
+    expect(getIsRolldown({ meta: { rolldownVersion: '1.0.0' } })).toBe(true);
+    expect(getIsRolldown({ meta: { viteVersion: '7.1.0' } })).toBe(false);
+    expect(getIsRolldown({ meta: null })).toBe(false);
+    expect(getIsRolldown(null)).toBe(false);
   });
 });

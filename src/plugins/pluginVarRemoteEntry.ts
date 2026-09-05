@@ -1,4 +1,4 @@
-import type { Plugin } from 'vite';
+import type { Plugin, ResolvedConfig } from 'vite';
 import { findRemoteEntryFile } from '../utils/bundleHelpers';
 import { createModuleFederationError, mfWarn } from '../utils/logger';
 import {
@@ -10,7 +10,7 @@ const VarRemoteEntry = (providedOptions?: NormalizedModuleFederationOptions): Pl
   const mfOptions = providedOptions ?? getNormalizeModuleFederationOptions();
   const { name, varFilename, filename } = mfOptions;
 
-  let viteConfig: any;
+  let viteConfig: ResolvedConfig;
 
   return [
     {
