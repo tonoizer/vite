@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'url';
-import type { Plugin } from 'vite';
+import type { Plugin, ResolvedConfig } from 'vite';
 import { normalizePathForImport } from '../utils/buildPaths';
 import { findModuleImportDescriptors, getScannableModuleSource } from '../utils/htmlEntryUtils';
 import {
@@ -51,7 +51,10 @@ export default function ({
   virtualExposesId,
   getParsePromise = () => Promise.resolve(),
 }: ProxyRemoteEntryParams): Plugin {
-  let viteConfig: any, _command: string, root: string, originalConfigBase: string | undefined;
+  let viteConfig: ResolvedConfig,
+    _command: string,
+    root: string,
+    originalConfigBase: string | undefined;
   let exposeRemoteDependencies: Record<string, string[]> = {};
   let exposeRemoteDependenciesDirty = true;
   let refreshPromise: Promise<void> | undefined;

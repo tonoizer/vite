@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { Plugin } from 'vite';
+import { Plugin, type ResolvedConfig } from 'vite';
 import {
   getNormalizeModuleFederationOptions,
   getNormalizeShareItem,
@@ -268,7 +268,7 @@ const Manifest = (providedOptions?: NormalizedModuleFederationOptions): Plugin[]
   let publicPath: string;
   let _command: string;
   let _originalConfigBase: string | undefined;
-  let viteConfig: any;
+  let viteConfig: ResolvedConfig;
 
   return [
     {

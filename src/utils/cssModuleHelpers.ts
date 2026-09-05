@@ -41,6 +41,7 @@ export type OutputBundleItem = OutputAssetLike | OutputChunkWithViteMetadata;
 export const ASSET_TYPES = ['js', 'css'] as const;
 export const LOAD_TIMINGS = ['sync', 'async'] as const;
 export const JS_EXTENSIONS = ['.ts', '.tsx', '.jsx', '.mjs', '.cjs'] as const;
+const JS_EXTENSION_SET: ReadonlySet<string> = new Set(JS_EXTENSIONS);
 
 export type AssetType = (typeof ASSET_TYPES)[number];
 export type AssetMap = {
@@ -210,7 +211,7 @@ export const processModuleAssets = (
       const comparableModulePaths = [comparableModulePath];
       if (options.stripKnownJsExtensions) {
         const ext = path.extname(comparableModulePath);
-        if (JS_EXTENSIONS.includes(ext as any)) {
+        if (JS_EXTENSION_SET.has(ext)) {
           comparableModulePaths.push(
             path.join(path.dirname(comparableModulePath), path.basename(comparableModulePath, ext))
           );

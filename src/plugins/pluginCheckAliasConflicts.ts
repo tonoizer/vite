@@ -13,7 +13,7 @@ export function checkAliasConflicts(options: { shared?: NormalizedShared }): Plu
 
   return {
     name: 'check-alias-conflicts',
-    configResolved(config: any) {
+    configResolved(config) {
       if (sharedKeys.length === 0) return;
 
       const userAliases: Alias[] = config.resolve?.alias || [];
