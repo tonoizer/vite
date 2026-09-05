@@ -83,6 +83,10 @@ import { findModuleImportDescriptors, getScannableModuleSource } from './utils/h
 import VirtualModule, { createViteEncodedIdPrefixRegExp } from './utils/VirtualModule';
 import {
   getHostAutoInitPath,
+  getPendingSharesPath,
+  isOwnedPendingSharesId,
+  PENDING_SHARES_TAG,
+  refreshPendingShares,
   getRemoteEntryId,
   initVirtualModules,
   LOAD_REMOTE_TAG,
@@ -1053,6 +1057,7 @@ function federation(mfUserOptions: ModuleFederationOptions): any[] {
     (id: string) => {
       return (
         id.includes(getHostAutoInitPath(options)) ||
+        id.includes(getPendingSharesPath(options)) ||
         id.includes(remoteEntryId) ||
         id.includes(virtualExposesId) ||
         id.includes('virtual:mf-localSharedImportMap') ||
@@ -1260,6 +1265,9 @@ function federation(mfUserOptions: ModuleFederationOptions): any[] {
             options,
             getLoadHookExportConditions(this as LoadHookContext, loadOptions)
           );
+        }
+        if (id.includes(PENDING_SHARES_TAG) && isOwnedPendingSharesId(id, options)) {
+          refreshPendingShares(options);
         }
         const virtualModule = VirtualModule.findById(id);
         if (!virtualModule) return;

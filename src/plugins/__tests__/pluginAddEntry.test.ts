@@ -607,6 +607,13 @@ describe('pluginAddEntry', () => {
     expect(result?.code).toContain('await __mfHostInit.__tla;');
     expect(result?.code).toContain('const { initHost } = __mfHostInit;');
     expect(result?.code).toContain('await initHost();');
+    // Still-unseeded share wrappers are evaluated after the remote preloads and before the pendingShareLoads barrier.
+    expect(result?.code.indexOf('await __mfPendingShares.preloadPendingShares();')).toBeGreaterThan(
+      result?.code.indexOf('await initHost();') ?? -1
+    );
+    expect(result?.code.indexOf('await __mfPendingShares.preloadPendingShares();')).toBeLessThan(
+      result?.code.indexOf('await Promise.all(__mfModuleCache.pendingShareLoads)') ?? -1
+    );
     expect(result?.code).toContain(
       '})().then(() => import("/virtual/client-entry.tsx?mf-entry-bootstrap"));'
     );

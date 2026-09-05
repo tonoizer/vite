@@ -30,7 +30,7 @@ import {
   getUsedRemotesMap,
   isDynamicOnlyRemote,
 } from '../virtualModules/virtualRemotes';
-import { getUsedShares } from '../virtualModules/virtualRemoteEntry';
+import { getPendingSharesPath, getUsedShares } from '../virtualModules/virtualRemoteEntry';
 import {
   getLoadShareModulePath,
   getProjectResolvedImportPath,
@@ -300,6 +300,7 @@ const addEntry = ({
   let htmlFilePath: string | undefined;
   let _command: string;
   let emitFileId: string;
+  let pendingSharesEmitId: string | undefined;
   let viteConfig: ResolvedConfig;
   // Producer remotes are consumed via federation entry URLs, not their index.html.
   // Skip only the broad dev HTML fallback — not isHydrationEntryFallback, which
@@ -447,7 +448,7 @@ const __mfCurrentScript = document.currentScript;
     initSrc: string,
     entrySrc: string,
     useSystemImportFallback = false,
-    options?: { skipRemotePreload?: boolean }
+    options?: { skipRemotePreload?: boolean; pendingSharesSrc?: string }
   ) {
     const importHelper = useSystemImportFallback
       ? `const __mfImport = (src) =>
@@ -623,12 +624,21 @@ for (const __mfRemoteEntryPrefetchUrl of __mfRemoteEntryPrefetchUrls) {
     await Promise.all(__mfReactServerModuleCache.pendingShareLoads);
   }`;
 
+    // Still-unseeded share wrappers are evaluated after the remote preloads and before the pendingShareLoads
+    // barrier, from a virtual module of their own so hostInit stays free of wrapper references.
+    const pendingSharesBlock =
+      waitsForInit && (_command === 'build' || viteConfig?.command === 'build')
+        ? `
+  const __mfPendingShares = await ${importExpression(options?.pendingSharesSrc ?? getPendingSharesPath(federationOptions))}.catch(() => undefined);
+  if (__mfPendingShares && typeof __mfPendingShares.preloadPendingShares === "function") await __mfPendingShares.preloadPendingShares();`
+        : '';
+
     const importCode = `
 (async () => {
   const __mfHostInit = await ${importExpression(initSrc)};
   await __mfHostInit.__tla;
   const { initHost } = __mfHostInit;
-  ${preloadBlock}${sharedPreloadBlock}${pendingShareLoadsAwait}
+  ${preloadBlock}${pendingSharesBlock}${sharedPreloadBlock}${pendingShareLoadsAwait}
 })().then(() => ${entryImportExpression});
 `;
 
@@ -641,8 +651,8 @@ for (const __mfRemoteEntryPrefetchUrl of __mfRemoteEntryPrefetchUrls) {
     ].join('\n');
   }
 
-  function getSystemBootstrapSource(initSrc: string, entrySrc: string) {
-    return getBootstrapSource(initSrc, entrySrc, true);
+  function getSystemBootstrapSource(initSrc: string, entrySrc: string, pendingSharesSrc?: string) {
+    return getBootstrapSource(initSrc, entrySrc, true, { pendingSharesSrc });
   }
 
   function injectHtml() {
@@ -964,6 +974,15 @@ for (const __mfRemoteEntryPrefetchUrl of __mfRemoteEntryPrefetchUrls) {
           emitFileOptions.fileName = fileName;
         }
         emitFileId = this.emitFile(emitFileOptions);
+        if (waitsForInit) {
+          // The still-unseeded share wrappers list lives in its own chunk so hostInit stays free of wrapper references.
+          pendingSharesEmitId = this.emitFile({
+            name: 'pendingShares',
+            type: 'chunk',
+            id: getPendingSharesPath(federationOptions),
+            preserveSignature: 'strict',
+          });
+        }
         if (htmlFilePath) {
           addHtmlScriptEntries(htmlFilePath);
         }
@@ -993,6 +1012,9 @@ for (const __mfRemoteEntryPrefetchUrl of __mfRemoteEntryPrefetchUrls) {
         if (htmlFileNames.length === 0) return;
         const file = this.getFileName(emitFileId);
         emittedFileName = file;
+        const pendingSharesFile = pendingSharesEmitId
+          ? this.getFileName(pendingSharesEmitId)
+          : undefined;
         // Derive bootstrapDir from the emitted hostInit file path.
         // entryFileNames is normalized away by Vite/Rolldown before plugins
         // can read it, so we extract the directory from the actual output path.
@@ -1064,7 +1086,18 @@ for (const __mfRemoteEntryPrefetchUrl of __mfRemoteEntryPrefetchUrls) {
             const rebasedEntrySrc = bootstrapDir
               ? rebaseImport(strippedEntry, bootstrapDir)
               : entrySrc;
-            const bootstrapSource = getSystemBootstrapSource(rebasedInitPath, rebasedEntrySrc);
+            const pendingSharesPath = pendingSharesFile
+              ? resolvePath(pendingSharesFile, fileName)
+              : undefined;
+            const rebasedPendingSharesPath =
+              pendingSharesPath && bootstrapDir
+                ? rebaseImport(stripBase(pendingSharesPath), bootstrapDir)
+                : pendingSharesPath;
+            const bootstrapSource = getSystemBootstrapSource(
+              rebasedInitPath,
+              rebasedEntrySrc,
+              rebasedPendingSharesPath
+            );
             // Content-hash the bootstrap filename so browsers/CDNs invalidate
             // the cache on deploy. Without a hash the file ships as
             // `mf-entry-bootstrap-0.js` and stale caches serve the old
