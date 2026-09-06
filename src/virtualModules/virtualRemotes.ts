@@ -199,11 +199,6 @@ export function getRemoteRegistration(
   };
 }
 
-export function getRemoteFromId(id: string, remotes: Record<string, RemoteObjectConfig>) {
-  const remoteAlias = getRemoteAliasFromId(id, remotes);
-  return remoteAlias ? remotes[remoteAlias] : undefined;
-}
-
 export function getRuntimeRemoteId(
   id: string,
   remotes: Record<string, RemoteObjectConfig>,

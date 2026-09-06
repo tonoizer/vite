@@ -319,8 +319,6 @@ export function isSharedPackageDependency(sharedKey: string, dependency: string)
 
 export function proxySharedModule(options: {
   shared?: NormalizedShared;
-  include?: string | string[];
-  exclude?: string | string[];
   federationOptions?: NormalizedModuleFederationOptions;
   getParsePromise?: () => Promise<unknown>;
 }): Plugin[] {
