@@ -55,7 +55,7 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
     }
 
     // Handle Function (returns the function's source code)
-    if (type === 'function') return val.toString();
+    if (type === 'function') return functionToExpression(val);
 
     // 2. Handle special built-in objects
     if (val instanceof Date) return `new Date(${toSafeJsLiteral(val.toISOString())})`;
@@ -115,4 +115,66 @@ export function serializeRuntimeOptions(options: Record<string, unknown>): strin
   }
 
   return `{${topLevelProps.join(', ')}}`;
+}
+
+const NATIVE_FUNCTION_SOURCE = /\{\s*\[native code\]\s*\}\s*$/;
+
+/**
+ * Turns `Function#toString()` output into a JS expression that is valid as an
+ * object-literal value.
+ *
+ * Method shorthand (`onError() { … }`) is not a valid expression after a `:`,
+ * so it is rewritten as a function expression. Native functions have no
+ * reconstructable source (`function parse() { [native code] }`) and serialize
+ * as `undefined` so the generated object stays loadable.
+ */
+function functionToExpression(fn: Function): string {
+  let source: string;
+  try {
+    source = Function.prototype.toString.call(fn).trim();
+  } catch {
+    return 'undefined';
+  }
+
+  if (NATIVE_FUNCTION_SOURCE.test(source) || /^(async\s+)?(?:get|set)\s+/.test(source)) {
+    return 'undefined';
+  }
+
+  // FunctionExpression, AsyncFunction, Generator, ClassExpression, or ArrowFunction.
+  if (
+    /^(async\s+)?function\b/.test(source) ||
+    /^(async\s*)?\(/.test(source) ||
+    /^class\b/.test(source) ||
+    /^(async\s+)?[$_\p{ID_Start}][$\p{ID_Continue}]*\s*=>/u.test(source)
+  ) {
+    return isParsableExpression(source) ? source : 'undefined';
+  }
+
+  // Method shorthand. Drop the method name: object methods may use reserved
+  // words, while function declarations may not (`default() {}` is valid but
+  // `function default() {}` is not). Computed names cannot be reconstructed
+  // safely from Function#toString, so they fall through to `undefined`.
+  const methodPatterns: Array<[RegExp, string]> = [
+    [/^async\s*\*\s*[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'async function* '],
+    [/^\*\s*[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'function* '],
+    [/^async\s+[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'async function '],
+    [/^[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'function '],
+  ];
+  for (const [pattern, prefix] of methodPatterns) {
+    const match = source.match(pattern);
+    if (!match) continue;
+    const expression = `${prefix}${match[1]}`;
+    return isParsableExpression(expression) ? expression : 'undefined';
+  }
+
+  return 'undefined';
+}
+
+function isParsableExpression(source: string): boolean {
+  try {
+    new Function(`return (${source});`);
+    return true;
+  } catch {
+    return false;
+  }
 }
