@@ -147,22 +147,34 @@ function functionToExpression(fn: Function): string {
     /^class\b/.test(source) ||
     /^(async\s+)?[$_\p{ID_Start}][$\p{ID_Continue}]*\s*=>/u.test(source)
   ) {
-    return source;
+    return isParsableExpression(source) ? source : 'undefined';
   }
 
-  // Method / generator-method shorthand from an object literal.
-  if (/^async\s*\*/.test(source)) {
-    return source.replace(/^async\s*\*\s*/, 'async function* ');
-  }
-  if (source.startsWith('*')) {
-    return source.replace(/^\*\s*/, 'function* ');
-  }
-  if (/^async\s+[$_\p{ID_Start}\[]/u.test(source)) {
-    return source.replace(/^async\s+/, 'async function ');
-  }
-  if (/^[$_\p{ID_Start}\[]/u.test(source)) {
-    return `function ${source}`;
+  // Method shorthand. Drop the method name: object methods may use reserved
+  // words, while function declarations may not (`default() {}` is valid but
+  // `function default() {}` is not). Computed names cannot be reconstructed
+  // safely from Function#toString, so they fall through to `undefined`.
+  const methodPatterns: Array<[RegExp, string]> = [
+    [/^async\s*\*\s*[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'async function* '],
+    [/^\*\s*[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'function* '],
+    [/^async\s+[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'async function '],
+    [/^[$_\p{ID_Start}][$\p{ID_Continue}]*\s*(\([\s\S]*)$/u, 'function '],
+  ];
+  for (const [pattern, prefix] of methodPatterns) {
+    const match = source.match(pattern);
+    if (!match) continue;
+    const expression = `${prefix}${match[1]}`;
+    return isParsableExpression(expression) ? expression : 'undefined';
   }
 
   return 'undefined';
+}
+
+function isParsableExpression(source: string): boolean {
+  try {
+    new Function(`return (${source});`);
+    return true;
+  } catch {
+    return false;
+  }
 }
