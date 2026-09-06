@@ -94,6 +94,27 @@ export function filterId(id: unknown): id is string {
   return typeof id === 'string' && !id.includes('\0');
 }
 
+// A path-segment or real module-file extension after `/node_modules/${candidate}`.
+// Naive `candidate.` matching treated `server.browser.js` as `react-dom/server`.
+const NODE_MODULE_FILE_EXT_RE = /^\.[cm]?[jt]sx?$/i;
+
+function matchesNodeModuleCandidate(normalized: string, candidate: string): boolean {
+  const marker = `/node_modules/${candidate}`;
+  let from = 0;
+  while (from < normalized.length) {
+    const index = normalized.indexOf(marker, from);
+    if (index === -1) return false;
+    const after = normalized.slice(index + marker.length);
+    const boundary = after.search(/[?#]/);
+    const afterPath = boundary === -1 ? after : after.slice(0, boundary);
+    if (afterPath === '' || afterPath.startsWith('/') || NODE_MODULE_FILE_EXT_RE.test(afterPath)) {
+      return true;
+    }
+    from = index + 1;
+  }
+  return false;
+}
+
 export function getMatchingNodeModuleSubpath(
   source: string,
   candidates: Iterable<string>
@@ -101,11 +122,7 @@ export function getMatchingNodeModuleSubpath(
   const normalized = normalizeNodeModulePath(source);
   return [...candidates]
     .sort((a, b) => b.length - a.length)
-    .find(
-      (candidate) =>
-        normalized.includes(`/node_modules/${candidate}/`) ||
-        normalized.includes(`/node_modules/${candidate}.`)
-    );
+    .find((candidate) => matchesNodeModuleCandidate(normalized, candidate));
 }
 
 export function getCommonSharedSubpaths(sharedKey: string): string[] {

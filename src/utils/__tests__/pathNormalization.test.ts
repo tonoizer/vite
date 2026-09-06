@@ -61,6 +61,47 @@ describe('pathNormalization', () => {
     ).toBe('react-dom/server.browser');
   });
 
+  it('does not treat a dotted sibling file as a shorter candidate (extension boundary)', () => {
+    // `server.browser.js` must not match shared key `react-dom/server` just because
+    // the path contains `/node_modules/react-dom/server.`. The `.` after the
+    // candidate has to be a module-file extension, not another filename segment.
+    expect(
+      getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/server.browser.js', [
+        'react-dom/server',
+      ])
+    ).toBeUndefined();
+    expect(
+      getMatchingNodeModuleSubpath('C:\\repo\\node_modules\\react-dom\\server.browser.js?v=1', [
+        'react-dom/server',
+      ])
+    ).toBeUndefined();
+
+    expect(
+      getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/server.js', ['react-dom/server'])
+    ).toBe('react-dom/server');
+    expect(
+      getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/client.mjs', ['react-dom/client'])
+    ).toBe('react-dom/client');
+    expect(
+      getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/client.js#app', [
+        'react-dom/client',
+      ])
+    ).toBe('react-dom/client');
+    expect(
+      getMatchingNodeModuleSubpath('/repo/node_modules/react-dom/server/render.js', [
+        'react-dom/server',
+      ])
+    ).toBe('react-dom/server');
+
+    // A dotted sibling earlier in the path must not hide a later exact module.
+    expect(
+      getMatchingNodeModuleSubpath(
+        '/repo/node_modules/react-dom/server.browser.js/vendor/node_modules/react-dom/server.js',
+        ['react-dom/server']
+      )
+    ).toBe('react-dom/server');
+  });
+
   it('detects common shared subpaths from node_modules paths', () => {
     expect(
       getCommonSharedSubpathFromNodeModulePath(
