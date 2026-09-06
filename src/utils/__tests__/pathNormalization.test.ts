@@ -132,6 +132,36 @@ describe('pathNormalization', () => {
     ).toBeUndefined();
   });
 
+  it('lists solid-js jsx runtimes and zustand middleware/shallow as common subpaths', () => {
+    expect(getCommonSharedSubpaths('solid-js')).toEqual([
+      'solid-js/web',
+      'solid-js/store',
+      'solid-js/html',
+      'solid-js/h',
+      'solid-js/jsx-runtime',
+      'solid-js/jsx-dev-runtime',
+    ]);
+    expect(getCommonSharedSubpaths('zustand')).toEqual([
+      'zustand/vanilla',
+      'zustand/react',
+      'zustand/middleware',
+      'zustand/shallow',
+    ]);
+    expect(getCommonSharedSubpaths('zustand')).not.toContain('zustand/context');
+    expect(
+      getCommonSharedSubpathFromNodeModulePath(
+        '/repo/node_modules/solid-js/jsx-runtime.js',
+        'solid-js'
+      )
+    ).toBe('solid-js/jsx-runtime');
+    expect(
+      getCommonSharedSubpathFromNodeModulePath(
+        '/repo/node_modules/zustand/middleware.js',
+        'zustand'
+      )
+    ).toBe('zustand/middleware');
+  });
+
   it.each([
     'styles.css',
     'styles.scss?inline',
