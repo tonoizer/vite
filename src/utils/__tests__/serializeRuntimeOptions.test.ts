@@ -102,7 +102,7 @@ describe('generateRuntimePluginOption - safe JS literal', () => {
         return 1;
       },
     });
-    expect(code).toMatch(/"onError":\s*function\s+onError\s*\(/);
+    expect(code).toMatch(/"onError":\s*function\s*\(/);
     const evaluated = new Function(`return (${code});`)() as { onError: () => number };
     expect(evaluated.onError()).toBe(1);
   });
@@ -114,5 +114,27 @@ describe('generateRuntimePluginOption - safe JS literal', () => {
     expect(code).toBe('{"parse": undefined}');
     expect(() => new Function(`return (${code});`)()).not.toThrow();
     expect(new Function(`return (${code});`)().parse).toBeUndefined();
+  });
+
+  it('serializes reserved-word method names without emitting invalid function names', () => {
+    const code = serializeRuntimeOptions({
+      default() {
+        return 1;
+      },
+    });
+    const evaluated = new Function(`return (${code});`)() as { default: () => number };
+    expect(evaluated.default()).toBe(1);
+  });
+
+  it('skips computed method names instead of emitting invalid JavaScript', () => {
+    const hook = 'onError';
+    const options = {
+      [hook]() {
+        return 1;
+      },
+    };
+    const code = serializeRuntimeOptions(options);
+    expect(code).toBe('{"onError": undefined}');
+    expect(() => new Function(`return (${code});`)()).not.toThrow();
   });
 });
