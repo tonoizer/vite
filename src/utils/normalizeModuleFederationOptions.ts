@@ -239,6 +239,13 @@ function isProtocolRequiredVersion(requiredVersion: string): boolean {
   return PACKAGE_SPECIFIER_PROTOCOL_RE.test(requiredVersion.trim());
 }
 
+/** URI-style package specifiers are not semver ranges for runtime satisfy(). */
+const PACKAGE_SPECIFIER_PROTOCOL_RE = /^[a-z][a-z\d+.-]*:/i;
+
+function isProtocolRequiredVersion(requiredVersion: string): boolean {
+  return PACKAGE_SPECIFIER_PROTOCOL_RE.test(requiredVersion.trim());
+}
+
 function getLitExportSubpathShares(sharedName: string): string[] {
   if (sharedName !== 'lit') return [];
 
