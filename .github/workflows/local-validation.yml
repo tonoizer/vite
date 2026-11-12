@@ -20,9 +20,9 @@ jobs:
       matrix:
         node: ['22', '24']
         target:
-          - name: ssr-build-lifecycle
-            ref: 21ab90ee3ebf5470bc5b21798bf8a4af1834ef99
-            integration: integration/ssr-vm-reentrant-linking.test.ts
+          - name: ssr-cjs-companion
+            ref: 6f865cc
+            integration: integration/ssr-cjs.test.ts integration/ssr-entry-loader-build.test.ts
             gc: true
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
@@ -53,3 +53,29 @@ jobs:
       - name: Owned graph garbage collection regressions
         if: ${{ !cancelled() && matrix.target.gc }}
         run: pnpm exec vitest run src/utils/__tests__/ssrBuildGraph.test.ts src/utils/__tests__/ssrEntryLoader.build-graph-cache.test.ts src/utils/__tests__/ssrEntryLoader.build-lifecycle.test.ts --execArgv=--expose-gc --execArgv=--experimental-vm-modules
+  compatibility:
+    name: CJS companion / Vite ${{ matrix.vite }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        vite: ['5.4.21', '6.4.6', '7.3.8', '8.2.4']
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: 6f865cc
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+        with:
+          version: 10.28.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Match upstream's peer-version testing; only the disposable runner changes its lockfile.
+      - run: pnpm add -Dw vite-under-test@npm:vite@${{ matrix.vite }}
+      - run: pnpm build
+      - name: CJS and existing SSR build compatibility
+        env:
+          MFE_VITE_PACKAGE: vite-under-test
+        run: pnpm exec vitest run integration/ssr-cjs.test.ts integration/ssr-entry-loader-build.test.ts
