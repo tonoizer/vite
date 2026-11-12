@@ -21,8 +21,8 @@ jobs:
         node: ['22', '24']
         target:
           - name: preload-asset
-            ref: cccf36da613c0c825359bd7ea6c1225378322959
-            integration: integration/preload-manifest.test.ts
+            ref: 1c68610e44d0e3ec2df2471fbc32da260cc6cc29
+            integration: integration/host-build.test.ts
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
