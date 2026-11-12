@@ -20,9 +20,10 @@ jobs:
       matrix:
         node: ['22', '24']
         target:
-          - name: preload-asset
-            ref: 1c68610e44d0e3ec2df2471fbc32da260cc6cc29
-            integration: integration/host-build.test.ts
+          - name: ssr-build-lifecycle
+            ref: 21ab90ee3ebf5470bc5b21798bf8a4af1834ef99
+            integration: integration/ssr-vm-reentrant-linking.test.ts
+            gc: true
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
@@ -49,3 +50,6 @@ jobs:
       - name: Feature integration tests
         if: ${{ !cancelled() && matrix.target.integration != '' }}
         run: pnpm exec vitest run ${{ matrix.target.integration }}
+      - name: Owned graph garbage collection regressions
+        if: ${{ !cancelled() && matrix.target.gc }}
+        run: pnpm exec vitest run src/utils/__tests__/ssrBuildGraph.test.ts src/utils/__tests__/ssrEntryLoader.build-graph-cache.test.ts src/utils/__tests__/ssrEntryLoader.build-lifecycle.test.ts --execArgv=--expose-gc --execArgv=--experimental-vm-modules
