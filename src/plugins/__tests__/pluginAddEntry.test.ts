@@ -2569,6 +2569,102 @@ describe('pluginAddEntry', () => {
     );
   });
 
+  it('emits a preload manifest for client builds without HTML', () => {
+    const buildPlugin = addEntry({
+      entryName: 'hostInit',
+      entryPath: '/virtual/hostInit.js',
+      inject: 'entry',
+    })[1];
+    const emitted: Rollup.EmittedFile[] = [];
+    const bundle: any = {
+      'assets/hostInit.js': {
+        type: 'chunk',
+        name: 'hostInit',
+        fileName: 'assets/hostInit.js',
+        imports: ['assets/runtime.js'],
+      },
+      'assets/runtime.js': {
+        type: 'chunk',
+        name: 'runtime',
+        fileName: 'assets/runtime.js',
+      },
+    };
+    runConfigResolved(buildPlugin, {
+      root: '/repo/host',
+      base: '/application/',
+      command: 'build',
+      build: { rollupOptions: {} },
+    } as unknown as ResolvedConfig);
+    runBuildStart(
+      buildPlugin,
+      { emitFile: () => 'host-init-ref' } as unknown as Rollup.PluginContext,
+      {} as Rollup.NormalizedInputOptions
+    );
+    runGenerateBundle(
+      buildPlugin,
+      {
+        getFileName: () => 'assets/hostInit.js',
+        emitFile: (file: Rollup.EmittedFile) => {
+          emitted.push(file);
+          return 'preload-ref';
+        },
+      } as unknown as Rollup.PluginContext,
+      {} as Rollup.NormalizedOutputOptions,
+      bundle
+    );
+
+    const manifest = emitted.find(
+      (file) => file.type === 'asset' && file.fileName === '.vite/mf-preload.json'
+    ) as Rollup.EmittedAsset | undefined;
+    expect(manifest).toBeDefined();
+    expect(JSON.parse(String(manifest!.source))).toEqual({
+      hostInit: ['assets/hostInit.js', 'assets/runtime.js'],
+      remoteEntries: [],
+    });
+  });
+
+  it.each([
+    { consumer: 'client', ssr: true, emits: true },
+    { consumer: 'server', ssr: false, emits: false },
+    { consumer: 'server', ssr: true, emits: false },
+  ] as const)(
+    'uses the $consumer hook environment for the client preload manifest with build.ssr=$ssr',
+    ({ consumer, ssr, emits }) => {
+      mockHasPackageDependency.mockReturnValue(false);
+      const buildPlugin = addEntry({
+        entryName: 'hostInit',
+        entryPath: '/virtual/hostInit.js',
+        inject: 'entry',
+      })[1];
+      runConfigResolved(buildPlugin, {
+        root: '/repo/host',
+        base: '/',
+        command: 'build',
+        build: { ssr, rollupOptions: {} },
+      } as unknown as ResolvedConfig);
+      const emitFile = vi.fn(() => 'preload-ref');
+      runGenerateBundle(
+        buildPlugin,
+        {
+          environment: { name: 'custom', config: { consumer } },
+          emitFile,
+        } as unknown as Rollup.PluginContext,
+        {} as Rollup.NormalizedOutputOptions,
+        {}
+      );
+      // Client builds consistently emit the schema even when no targets exist.
+      if (emits) {
+        expect(emitFile).toHaveBeenCalledWith({
+          type: 'asset',
+          fileName: '.vite/mf-preload.json',
+          source: JSON.stringify({ hostInit: [], remoteEntries: [] }, null, 2),
+        });
+      } else {
+        expect(emitFile).not.toHaveBeenCalled();
+      }
+    }
+  );
+
   it('injects host init chunk-chain modulepreloads during build', () => {
     const plugins = addEntry({
       entryName: 'hostInit',
@@ -3279,6 +3375,7 @@ describe('pluginAddEntry', () => {
       buildPlugin,
       {
         getFileName: () => 'assets/hostInit.js',
+        emitFile: (file: Rollup.EmittedFile) => (emitted.push(file), 'preload-ref'),
       } as unknown as Rollup.PluginContext,
       {} as Rollup.NormalizedOutputOptions,
       bundle as unknown as Rollup.OutputBundle,

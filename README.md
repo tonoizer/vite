@@ -198,6 +198,8 @@ export default defineConfig({
       // initHost() completes before hydrateRoot and @module-federation/bridge-react
       // remotes render on first paint.
       hostInitInjectLocation: "html", // or "entry"
+      // Emit client preload targets for server-rendered HTML, including builds without index.html.
+      preloadManifest: true, // Set false to disable .vite/mf-preload.json.
       // Controls whether all CSS assets from the bundle should be added to every exposed module.
       // When false (default), the plugin will not process any CSS assets.
       // When true, all CSS assets are bundled into every exposed module.
@@ -258,6 +260,54 @@ The optional `varFilename` wrapper registers the container on `globalThis[name]`
 You can specify the place the host initialization file is injected with the **hostInitInjectLocation** option, which is described in the example code above.
 The **moduleParseTimeout** option allows you to configure the maximum time to wait for module parsing during the build process.
 The **moduleParseIdleTimeout** option is an alternative that resets the timer on every parsed module. It only fires when there has been no module activity for the configured duration, making it suitable for large codebases where the total build time exceeds the fixed timeout.
+
+## Client preload manifest
+
+Client builds emit `.vite/mf-preload.json` inside the output directory, including
+when the build input contains no HTML. The schema is:
+
+```json
+{
+  "hostInit": ["assets/hostInit-abc123.js", "assets/runtime-def456.js"],
+  "remoteEntries": ["https://example.com/remoteEntry.js", "/remote/remoteEntry.js"]
+}
+```
+
+`hostInit` contains the same chunk targets used by the plugin's HTML modulepreload
+links: initialization and application entry seeds, entry bootstrap chunks, and
+their eligible static imports. Paths are relative to the output root, without
+Vite's `base` or `experimental.renderBuiltUrl` transformations. `remoteEntries`
+contains only statically known module/ESM entry URLs selected by the configured
+share strategy. Manifest URLs, unresolved relative URLs, script remotes, and
+entries registered only at runtime are omitted. Both lists are deduplicated and
+may be empty. Multiple federation configurations share one asset.
+
+For SSR, read the asset from the **client** build and render links in the document
+head. Apply your client `base` (or custom public URL mapping) only to `hostInit`:
+
+```js
+import { readFile } from 'node:fs/promises';
+
+const targets = JSON.parse(
+  await readFile('./dist/client/.vite/mf-preload.json', 'utf8')
+);
+const clientBase = '/application/'; // Match the client build's base.
+const hrefs = new Set([
+  ...targets.remoteEntries,
+  ...targets.hostInit.map((file) => clientBase + file),
+]);
+const escapeAttr = (value) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+const preloadLinks = [...hrefs]
+  .map((href) => `<link rel="modulepreload" crossorigin href="${escapeAttr(href)}">`)
+  .join('');
+// Insert preloadLinks in the server-rendered <head>.
+```
+
+The asset is enabled by default. Set federation's `preloadManifest: false` to
+disable it while retaining HTML preload injection. Vite's `build.modulePreload:
+false` disables both the asset and the plugin's HTML preload hints. SSR builds do
+not emit this client asset. This file supplies fetch hints; the existing host
+initialization still runs before the application entry.
 
 ## SSR runtime initialization
 
