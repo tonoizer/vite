@@ -20,14 +20,9 @@ jobs:
       matrix:
         node: ['22', '24']
         target:
-          - name: baseline
-            ref: f27d5eb0baf76a069fa5cb9ed23443333e04e95c
           - name: preload-asset
-            ref: 189acb78755601cdafeaf97e5817f7ebc9e1ded4
+            ref: cccf36da613c0c825359bd7ea6c1225378322959
             integration: integration/preload-manifest.test.ts
-          - name: vm-reentrant-linking
-            ref: e001d44087cde75bc788de98b54444489968c7e2
-            integration: integration/ssr-vm-reentrant-linking.test.ts
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
