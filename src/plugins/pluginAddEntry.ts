@@ -1233,7 +1233,7 @@ for (const __mfRemoteEntryPrefetchUrl of __mfRemoteEntryPrefetchUrls) {
               getRemoteEntryPreloadUrls(isSsr),
               // Entry injection dynamically imports the app's bootstrap chunk.
               (chunk) =>
-                inject === 'entry' &&
+                injectEntry() &&
                 !!chunk.facadeModuleId &&
                 hasEntryBootstrapParam(chunk.facadeModuleId)
             )

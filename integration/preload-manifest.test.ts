@@ -64,6 +64,25 @@ describe('client preload manifest', () => {
     for (const chunk of bootstrapChunks) expect(targets.hostInit).toContain(chunk.fileName);
   });
 
+  it('includes the application bootstrap when default HTML injection falls back to entry', async () => {
+    const output = await buildFixture({
+      fixture: 'basic-host',
+      mfOptions: { ...options, hostInitInjectLocation: undefined },
+      viteConfig: {
+        build: { rollupOptions: { input: resolve(FIXTURES, 'basic-host', 'entry.js') } },
+      },
+    });
+    const targets = preloadTargets(output);
+    const bootstrap = output.output.find(
+      (chunk): chunk is Rollup.OutputChunk =>
+        chunk.type === 'chunk' && !!chunk.facadeModuleId?.includes('mf-entry-bootstrap')
+    );
+    expect(output.output.some((file) => file.fileName.endsWith('.html'))).toBe(false);
+    expect(bootstrap).toBeDefined();
+    expect(targets.hostInit).toContain(bootstrap!.fileName);
+    for (const file of bootstrap!.imports) expect(targets.hostInit).toContain(file);
+  });
+
   it.each(['html', 'entry'] as const)(
     'uses the same targets as %s-injected HTML with a base',
     async (inject) => {
