@@ -21,7 +21,7 @@ jobs:
         node: ['22', '24']
         target:
           - name: ssr-cjs-companion
-            ref: 838b045377cc91d181bdc0cf194925e55c3f31c7
+            ref: a964ba478a0bec56244d8ddb498fbb6c8a3bcf0c
             integration: integration/ssr-cjs.test.ts integration/ssr-entry-loader-build.test.ts
             gc: true
     steps:
@@ -63,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
-          ref: 838b045377cc91d181bdc0cf194925e55c3f31c7
+          ref: a964ba478a0bec56244d8ddb498fbb6c8a3bcf0c
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
         with:
           version: 10.28.2
